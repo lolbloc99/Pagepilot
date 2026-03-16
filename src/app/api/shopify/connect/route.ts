@@ -1,31 +1,96 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getShopInfo, listThemes } from "@/lib/shopify/admin";
+import { upsertShop } from "@/lib/db/shops";
+import crypto from "crypto";
 
 export async function POST(req: NextRequest) {
   try {
-    const { domain, accessToken } = await req.json();
+    const { shop } = await req.json();
 
-    if (!domain || !accessToken) {
+    if (!shop) {
+      return NextResponse.json({ error: "shop domain is required" }, { status: 400 });
+    }
+
+    const clientId = process.env.SHOPIFY_CLIENT_ID;
+    const clientSecret = process.env.SHOPIFY_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
       return NextResponse.json(
-        { error: "domain and accessToken are required" },
-        { status: 400 }
+        { error: "SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET not configured" },
+        { status: 500 }
       );
     }
 
-    // Test the connection by fetching shop info + themes
-    const [shop, themes] = await Promise.all([
-      getShopInfo(domain, accessToken),
-      listThemes(domain, accessToken),
-    ]);
+    const cleanShop = shop.replace(/^https?:\/\//, "").replace(/\/$/, "");
+
+    // Get access token via client_credentials grant (Shopify 2025+ method)
+    const tokenRes = await fetch(
+      `https://${cleanShop}/admin/oauth/access_token`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "client_credentials",
+          client_id: clientId,
+          client_secret: clientSecret,
+        }),
+      }
+    );
+
+    if (!tokenRes.ok) {
+      const errText = await tokenRes.text();
+      console.error("Token request failed:", errText);
+      return NextResponse.json(
+        { error: `Shopify rejected the connection. Make sure the app is installed on this store. (${tokenRes.status})` },
+        { status: 500 }
+      );
+    }
+
+    const tokenData = await tokenRes.json();
+    const accessToken = tokenData.access_token;
+    const scopes = tokenData.scope || "";
+    const expiresIn = tokenData.expires_in || 86399;
+
+    // Fetch shop name
+    let shopName = cleanShop;
+    try {
+      const shopRes = await fetch(
+        `https://${cleanShop}/admin/api/2024-10/shop.json`,
+        {
+          headers: {
+            "X-Shopify-Access-Token": accessToken,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      if (shopRes.ok) {
+        const shopData = await shopRes.json();
+        shopName = shopData.shop.name;
+      }
+    } catch {
+      // Use domain as fallback
+    }
+
+    // Save to MongoDB (token + expiry for auto-refresh)
+    await upsertShop({
+      shopId: crypto.randomUUID(),
+      name: shopName,
+      domain: cleanShop,
+      accessToken,
+      scopes,
+      addedAt: new Date(),
+    });
 
     return NextResponse.json({
       success: true,
-      shopName: shop.name,
-      themes,
+      shopName,
+      domain: cleanShop,
+      expiresIn,
     });
   } catch (error) {
     console.error("Shopify connect error:", error);
-    const msg = error instanceof Error ? error.message : "Connection failed";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Connection failed" },
+      { status: 500 }
+    );
   }
 }

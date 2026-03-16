@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listThemes } from "@/lib/shopify/admin";
-import { getShopByDomain } from "@/lib/db/shops";
+import { getValidToken } from "@/lib/shopify/token";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,15 +13,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const shop = await getShopByDomain(domain);
-    if (!shop) {
-      return NextResponse.json(
-        { error: "Shop not connected" },
-        { status: 404 }
-      );
-    }
-
-    const themes = await listThemes(shop.domain, shop.accessToken);
+    const accessToken = await getValidToken(domain);
+    const themes = await listThemes(domain, accessToken);
     return NextResponse.json({ themes });
   } catch (error) {
     console.error("Shopify themes error:", error);

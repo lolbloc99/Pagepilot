@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 
 interface Shop {
   shopId: string;
@@ -10,33 +9,6 @@ interface Shop {
   domain: string;
   addedAt: string;
   hasToken: boolean;
-}
-
-function OAuthHandler({ onConnected, onError }: { onConnected: (name: string) => void; onError: (msg: string) => void }) {
-  const searchParams = useSearchParams();
-
-  useEffect(() => {
-    const connected = searchParams.get("connected");
-    const errorParam = searchParams.get("error");
-
-    if (connected) {
-      onConnected(decodeURIComponent(connected));
-      window.history.replaceState({}, "", "/shops");
-    }
-
-    if (errorParam) {
-      const messages: Record<string, string> = {
-        missing_params: "OAuth callback missing parameters",
-        missing_config: "Server missing SHOPIFY_CLIENT_ID or SHOPIFY_CLIENT_SECRET",
-        token_exchange_failed: "Failed to exchange OAuth code for token",
-        callback_failed: "OAuth callback failed",
-      };
-      onError(messages[errorParam] || "Connection failed");
-      window.history.replaceState({}, "", "/shops");
-    }
-  }, [searchParams, onConnected, onError]);
-
-  return null;
 }
 
 export default function ShopsPage() {
@@ -64,15 +36,6 @@ export default function ShopsPage() {
     }
   }, []);
 
-  const handleOAuthConnected = useCallback((name: string) => {
-    setSuccess(`${name} connected successfully!`);
-    fetchShops();
-  }, [fetchShops]);
-
-  const handleOAuthError = useCallback((msg: string) => {
-    setError(msg);
-  }, []);
-
   useEffect(() => {
     fetchShops();
     setActiveDomain(localStorage.getItem("pageforge_active_domain"));
@@ -88,19 +51,25 @@ export default function ShopsPage() {
         .replace(/^https?:\/\//, "")
         .replace(/\/$/, "");
 
-      const res = await fetch("/api/shopify/auth", {
+      // Direct connect via client_credentials (no OAuth redirect needed)
+      const res = await fetch("/api/shopify/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ shop: cleanDomain }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Auth failed");
+      if (!res.ok) throw new Error(data.error || "Connection failed");
 
-      // Redirect to Shopify OAuth
-      window.location.href = data.authUrl;
+      setSuccess(`${data.shopName} connected successfully!`);
+      localStorage.setItem("pageforge_active_domain", data.domain);
+      setActiveDomain(data.domain);
+      setShowAdd(false);
+      setDomain("");
+      await fetchShops();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Connection failed");
+    } finally {
       setConnecting(false);
     }
   }
@@ -130,9 +99,6 @@ export default function ShopsPage() {
 
   return (
     <main className="min-h-screen">
-      <Suspense>
-        <OAuthHandler onConnected={handleOAuthConnected} onError={handleOAuthError} />
-      </Suspense>
       <header className="border-b border-[var(--border)] px-6 py-4">
         <div className="mx-auto max-w-6xl flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -194,10 +160,9 @@ export default function ShopsPage() {
               <div className="p-4 rounded-lg bg-[var(--secondary)] border border-[var(--border)]">
                 <p className="text-sm font-medium mb-2">How it works:</p>
                 <ol className="text-xs text-[var(--muted-foreground)] space-y-1 list-decimal list-inside">
-                  <li>Enter your store domain above</li>
-                  <li>Click &quot;Connect Store&quot; — you&apos;ll be redirected to Shopify</li>
-                  <li>Authorize PagePilot to access your themes</li>
-                  <li>You&apos;ll be redirected back here with your store connected</li>
+                  <li>Make sure the PagePilot app is installed on your store</li>
+                  <li>Enter your store domain above (e.g. my-store.myshopify.com)</li>
+                  <li>Click &quot;Connect Store&quot; — we&apos;ll authenticate automatically</li>
                 </ol>
               </div>
               {error && (

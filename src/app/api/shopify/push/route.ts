@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pushTemplate } from "@/lib/shopify/admin";
-import { getShopByDomain } from "@/lib/db/shops";
+import { getValidToken } from "@/lib/shopify/token";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,13 +13,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const shop = await getShopByDomain(domain);
-    if (!shop) {
-      return NextResponse.json(
-        { error: "Shop not connected" },
-        { status: 404 }
-      );
-    }
+    const accessToken = await getValidToken(domain);
 
     const safeName = templateName
       .toLowerCase()
@@ -31,7 +25,7 @@ export async function POST(req: NextRequest) {
       ? `product.${safeName}`
       : `product.${safeName}.json`;
 
-    const result = await pushTemplate(shop.domain, shop.accessToken, themeId, key, template);
+    const result = await pushTemplate(domain, accessToken, themeId, key, template);
 
     return NextResponse.json({
       success: true,
