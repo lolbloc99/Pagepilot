@@ -41,17 +41,17 @@ function cleanHtmlForShopify(html: string, baseUrl: string): string {
     "{{ section.id }}"
   );
 
-  // Make relative image URLs absolute
+  // Make relative image URLs absolute (but don't touch protocol-relative // or absolute http URLs)
   if (baseUrl) {
     cleaned = cleaned.replace(
-      /src="\/([^"]*?)"/gi,
+      /src="\/(?!\/|http)([^"]*?)"/gi,
       `src="${baseUrl}/$1"`
     );
     cleaned = cleaned.replace(
       /srcset="([^"]*?)"/gi,
       (match, srcset) => {
         const fixed = srcset.replace(
-          /\/\/([^\s,]+)/g,
+          /(?<!=:)\/\/([^\s,]+)/g,
           "https://$1"
         );
         return `srcset="${fixed}"`;
@@ -61,6 +61,10 @@ function cleanHtmlForShopify(html: string, baseUrl: string): string {
 
   // Remove empty onclick/onload handlers
   cleaned = cleaned.replace(/\son\w+="[^"]*"/gi, "");
+
+  // Fix double protocol in URLs (https:https://)
+  cleaned = cleaned.replace(/https:https:\/\//g, "https://");
+  cleaned = cleaned.replace(/http:https:\/\//g, "https://");
 
   return cleaned;
 }
@@ -113,11 +117,30 @@ export async function clonePage(
 
 You do NOT reproduce the HTML. You only return replacements.`;
 
-  // Send a representative sample of the HTML (first 15k) for analysis
-  const maxHtml = 15000;
-  const sampleHtml = processedHtml.length > maxHtml
-    ? processedHtml.slice(0, maxHtml)
-    : processedHtml;
+  // Send a smart sample: first 10k + search for price/cart sections to include
+  const maxHtml = 18000;
+  let sampleHtml: string;
+  if (processedHtml.length <= maxHtml) {
+    sampleHtml = processedHtml;
+  } else {
+    // Include first 12k (product gallery, title) + find price/cart section
+    const first = processedHtml.slice(0, 12000);
+    // Search for price area in the rest
+    const rest = processedHtml.slice(12000);
+    const priceIdx = rest.search(/class="[^"]*price[^"]*"|class='[^']*price[^']*'/i);
+    const cartIdx = rest.search(/add[_-]?to[_-]?cart|warenkorb|panier/i);
+    const importantIdx = Math.min(
+      priceIdx >= 0 ? priceIdx : rest.length,
+      cartIdx >= 0 ? cartIdx : rest.length
+    );
+    if (importantIdx < rest.length) {
+      const start = Math.max(0, importantIdx - 500);
+      const priceSection = rest.slice(start, start + 5000);
+      sampleHtml = first + "\n<!-- ... -->\n" + priceSection;
+    } else {
+      sampleHtml = first;
+    }
+  }
 
   const userMessage = `Analyze this HTML from a product page and return replacements to make it a Shopify Liquid section.
 
