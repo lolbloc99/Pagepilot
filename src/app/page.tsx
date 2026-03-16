@@ -119,9 +119,9 @@ export default function Home() {
         <div className="mx-auto max-w-6xl flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-[var(--primary)] flex items-center justify-center text-white font-bold text-sm">
-              PF
+              PP
             </div>
-            <h1 className="text-xl font-semibold">PageForge</h1>
+            <h1 className="text-xl font-semibold">PagePilot</h1>
           </div>
           <nav className="flex items-center gap-6">
             <span className="text-sm text-white font-medium">

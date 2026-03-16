@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { upsertShop } from "@/lib/db/shops";
+import crypto from "crypto";
 
 export async function GET(req: NextRequest) {
   try {
@@ -46,6 +48,7 @@ export async function GET(req: NextRequest) {
 
     const tokenData = await tokenRes.json();
     const accessToken = tokenData.access_token;
+    const scopes = tokenData.scope || "";
 
     // Fetch shop name
     let shopName = shop;
@@ -67,17 +70,18 @@ export async function GET(req: NextRequest) {
       // Use domain as name fallback
     }
 
-    // Redirect to shops page with token data encoded in URL fragment (stays client-side only)
-    const shopData = encodeURIComponent(
-      JSON.stringify({
-        domain: shop,
-        name: shopName,
-        accessToken,
-      })
-    );
+    // Save to MongoDB
+    await upsertShop({
+      shopId: crypto.randomUUID(),
+      name: shopName,
+      domain: shop,
+      accessToken,
+      scopes,
+      addedAt: new Date(),
+    });
 
     return NextResponse.redirect(
-      new URL(`/shops?connected=${shopData}`, req.url)
+      new URL(`/shops?connected=${encodeURIComponent(shopName)}`, req.url)
     );
   } catch (error) {
     console.error("Shopify callback error:", error);

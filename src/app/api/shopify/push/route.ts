@@ -1,14 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pushTemplate } from "@/lib/shopify/admin";
+import { getShopByDomain } from "@/lib/db/shops";
 
 export async function POST(req: NextRequest) {
   try {
-    const { domain, accessToken, themeId, templateName, template } = await req.json();
+    const { domain, themeId, templateName, template } = await req.json();
 
-    if (!domain || !accessToken || !themeId || !templateName || !template) {
+    if (!domain || !themeId || !templateName || !template) {
       return NextResponse.json(
-        { error: "domain, accessToken, themeId, templateName, and template are required" },
+        { error: "domain, themeId, templateName, and template are required" },
         { status: 400 }
+      );
+    }
+
+    const shop = await getShopByDomain(domain);
+    if (!shop) {
+      return NextResponse.json(
+        { error: "Shop not connected" },
+        { status: 404 }
       );
     }
 
@@ -22,7 +31,7 @@ export async function POST(req: NextRequest) {
       ? `product.${safeName}`
       : `product.${safeName}.json`;
 
-    const result = await pushTemplate(domain, accessToken, themeId, key, template);
+    const result = await pushTemplate(shop.domain, shop.accessToken, themeId, key, template);
 
     return NextResponse.json({
       success: true,

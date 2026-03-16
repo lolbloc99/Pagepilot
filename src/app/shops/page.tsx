@@ -1,57 +1,57 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import {
-  ShopifyShop,
-  getShops,
-  addShop,
-  removeShop,
-  getActiveShopId,
-  setActiveShop,
-} from "@/lib/shopify/store";
+
+interface Shop {
+  shopId: string;
+  name: string;
+  domain: string;
+  addedAt: string;
+  hasToken: boolean;
+}
 
 export default function ShopsPage() {
-  const [shops, setShops] = useState<ShopifyShop[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [shops, setShops] = useState<Shop[]>([]);
+  const [activeDomain, setActiveDomain] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [domain, setDomain] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const searchParams = useSearchParams();
 
+  const fetchShops = useCallback(async () => {
+    try {
+      const res = await fetch("/api/shops");
+      if (res.ok) {
+        const data = await res.json();
+        setShops(data.shops);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    setShops(getShops());
-    setActiveId(getActiveShopId());
+    fetchShops();
+
+    // Load active shop from localStorage (just the domain reference)
+    setActiveDomain(localStorage.getItem("pageforge_active_domain"));
 
     // Handle OAuth callback
     const connected = searchParams.get("connected");
     const errorParam = searchParams.get("error");
 
     if (connected) {
-      try {
-        const data = JSON.parse(decodeURIComponent(connected));
-        const shop: ShopifyShop = {
-          id: crypto.randomUUID(),
-          name: data.name,
-          domain: data.domain,
-          accessToken: data.accessToken,
-          addedAt: new Date().toISOString(),
-        };
-        addShop(shop);
-        setShops(getShops());
-        setActiveId(getActiveShopId());
-        setSuccess(`${data.name} connected successfully!`);
-
-        // Clean URL
-        window.history.replaceState({}, "", "/shops");
-      } catch (err) {
-        console.error("Failed to parse connected data:", err);
-        setError("Failed to save shop connection");
-      }
+      setSuccess(`${decodeURIComponent(connected)} connected successfully!`);
+      fetchShops();
+      window.history.replaceState({}, "", "/shops");
     }
 
     if (errorParam) {
@@ -64,7 +64,7 @@ export default function ShopsPage() {
       setError(messages[errorParam] || "Connection failed");
       window.history.replaceState({}, "", "/shops");
     }
-  }, [searchParams]);
+  }, [searchParams, fetchShops]);
 
   async function handleConnect() {
     if (!domain) return;
@@ -76,7 +76,6 @@ export default function ShopsPage() {
         .replace(/^https?:\/\//, "")
         .replace(/\/$/, "");
 
-      // Get OAuth URL from our API
       const res = await fetch("/api/shopify/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -86,9 +85,6 @@ export default function ShopsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Auth failed");
 
-      // Store nonce for verification
-      sessionStorage.setItem("shopify_oauth_nonce", data.nonce);
-
       // Redirect to Shopify OAuth
       window.location.href = data.authUrl;
     } catch (err) {
@@ -97,42 +93,46 @@ export default function ShopsPage() {
     }
   }
 
-  function handleRemove(id: string) {
-    removeShop(id);
-    setShops(getShops());
-    setActiveId(getActiveShopId());
-    setDeleteConfirm(null);
+  async function handleRemove(shopDomain: string) {
+    try {
+      await fetch("/api/shops", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain: shopDomain }),
+      });
+      if (activeDomain === shopDomain) {
+        localStorage.removeItem("pageforge_active_domain");
+        setActiveDomain(null);
+      }
+      await fetchShops();
+      setDeleteConfirm(null);
+    } catch {
+      setError("Failed to remove shop");
+    }
   }
 
-  function handleSelect(id: string) {
-    setActiveShop(id);
-    setActiveId(id);
+  function handleSelect(shopDomain: string) {
+    localStorage.setItem("pageforge_active_domain", shopDomain);
+    setActiveDomain(shopDomain);
   }
 
   return (
     <main className="min-h-screen">
-      {/* Header */}
       <header className="border-b border-[var(--border)] px-6 py-4">
         <div className="mx-auto max-w-6xl flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
               <div className="w-8 h-8 rounded-lg bg-[var(--primary)] flex items-center justify-center text-white font-bold text-sm">
-                PF
+                PP
               </div>
-              <h1 className="text-xl font-semibold">PageForge</h1>
+              <h1 className="text-xl font-semibold">PagePilot</h1>
             </Link>
           </div>
           <nav className="flex items-center gap-6">
-            <Link
-              href="/"
-              className="text-sm text-[var(--muted-foreground)] hover:text-white transition-colors"
-            >
+            <Link href="/" className="text-sm text-[var(--muted-foreground)] hover:text-white transition-colors">
               Generator
             </Link>
-            <Link
-              href="/shops"
-              className="text-sm text-white font-medium"
-            >
+            <Link href="/shops" className="text-sm text-white font-medium">
               Shops
             </Link>
           </nav>
@@ -140,7 +140,6 @@ export default function ShopsPage() {
       </header>
 
       <div className="mx-auto max-w-4xl px-6 py-12">
-        {/* Title */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-3xl font-bold">Shopify Stores</h2>
@@ -149,34 +148,25 @@ export default function ShopsPage() {
             </p>
           </div>
           <button
-            onClick={() => {
-              setShowAdd(true);
-              setError("");
-              setSuccess("");
-            }}
+            onClick={() => { setShowAdd(true); setError(""); setSuccess(""); }}
             className="px-5 py-2.5 bg-[var(--primary)] hover:bg-[var(--primary)]/90 rounded-lg text-sm font-medium transition-colors"
           >
             + Add Store
           </button>
         </div>
 
-        {/* Success message */}
         {success && (
           <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30 mb-6">
             <p className="text-green-400 font-medium">{success}</p>
           </div>
         )}
 
-        {/* Add Store Form */}
         {showAdd && (
           <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 mb-8">
             <h3 className="text-lg font-bold mb-4">Connect a Shopify Store</h3>
-
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1.5">
-                  Store domain
-                </label>
+                <label className="block text-sm font-medium mb-1.5">Store domain</label>
                 <input
                   type="text"
                   value={domain}
@@ -186,31 +176,23 @@ export default function ShopsPage() {
                   onKeyDown={(e) => e.key === "Enter" && handleConnect()}
                 />
               </div>
-
-              {/* Instructions */}
               <div className="p-4 rounded-lg bg-[var(--secondary)] border border-[var(--border)]">
                 <p className="text-sm font-medium mb-2">How it works:</p>
                 <ol className="text-xs text-[var(--muted-foreground)] space-y-1 list-decimal list-inside">
                   <li>Enter your store domain above</li>
                   <li>Click &quot;Connect Store&quot; — you&apos;ll be redirected to Shopify</li>
-                  <li>Authorize PageForge to access your themes</li>
+                  <li>Authorize PagePilot to access your themes</li>
                   <li>You&apos;ll be redirected back here with your store connected</li>
                 </ol>
               </div>
-
               {error && (
                 <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30">
                   <p className="text-red-400 text-sm">{error}</p>
                 </div>
               )}
-
               <div className="flex gap-3 pt-2">
                 <button
-                  onClick={() => {
-                    setShowAdd(false);
-                    setError("");
-                    setDomain("");
-                  }}
+                  onClick={() => { setShowAdd(false); setError(""); setDomain(""); }}
                   className="px-5 py-2.5 bg-[var(--secondary)] hover:bg-[var(--muted)] rounded-lg text-sm transition-colors"
                 >
                   Cancel
@@ -234,22 +216,17 @@ export default function ShopsPage() {
           </div>
         )}
 
-        {/* Shops List */}
-        {shops.length === 0 && !showAdd && (
+        {loading && (
+          <div className="flex justify-center py-12">
+            <div className="w-8 h-8 rounded-full border-2 border-[var(--primary)] border-t-transparent animate-spin" />
+          </div>
+        )}
+
+        {!loading && shops.length === 0 && !showAdd && (
           <div className="bg-[var(--card)] border border-[var(--border)] border-dashed rounded-xl p-12 text-center">
             <div className="w-16 h-16 rounded-2xl bg-[var(--secondary)] flex items-center justify-center mx-auto mb-4">
-              <svg
-                className="w-8 h-8 text-[var(--muted-foreground)]"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35"
-                />
+              <svg className="w-8 h-8 text-[var(--muted-foreground)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35" />
               </svg>
             </div>
             <h3 className="text-lg font-semibold mb-2">No stores connected</h3>
@@ -268,9 +245,9 @@ export default function ShopsPage() {
         <div className="space-y-4">
           {shops.map((shop) => (
             <div
-              key={shop.id}
+              key={shop.domain}
               className={`bg-[var(--card)] border rounded-xl p-5 transition-colors ${
-                activeId === shop.id
+                activeDomain === shop.domain
                   ? "border-[#96bf48] ring-1 ring-[#96bf48]/30"
                   : "border-[var(--border)]"
               }`}
@@ -284,52 +261,27 @@ export default function ShopsPage() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-lg">{shop.name}</h3>
-                    <p className="text-sm text-[var(--muted-foreground)]">
-                      {shop.domain}
-                    </p>
+                    <p className="text-sm text-[var(--muted-foreground)]">{shop.domain}</p>
                     <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
                       Added {new Date(shop.addedAt).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
-
                 <div className="flex items-center gap-3">
-                  {activeId === shop.id ? (
-                    <span className="px-3 py-1.5 rounded-full bg-[#96bf48]/10 text-[#96bf48] text-xs font-medium">
-                      Active
-                    </span>
+                  {activeDomain === shop.domain ? (
+                    <span className="px-3 py-1.5 rounded-full bg-[#96bf48]/10 text-[#96bf48] text-xs font-medium">Active</span>
                   ) : (
-                    <button
-                      onClick={() => handleSelect(shop.id)}
-                      className="px-4 py-2 bg-[var(--secondary)] hover:bg-[var(--muted)] rounded-lg text-sm transition-colors"
-                    >
+                    <button onClick={() => handleSelect(shop.domain)} className="px-4 py-2 bg-[var(--secondary)] hover:bg-[var(--muted)] rounded-lg text-sm transition-colors">
                       Select
                     </button>
                   )}
-
-                  {deleteConfirm === shop.id ? (
+                  {deleteConfirm === shop.domain ? (
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleRemove(shop.id)}
-                        className="px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs font-medium transition-colors"
-                      >
-                        Confirm
-                      </button>
-                      <button
-                        onClick={() => setDeleteConfirm(null)}
-                        className="px-3 py-2 bg-[var(--secondary)] hover:bg-[var(--muted)] rounded-lg text-xs transition-colors"
-                      >
-                        Cancel
-                      </button>
+                      <button onClick={() => handleRemove(shop.domain)} className="px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs font-medium transition-colors">Confirm</button>
+                      <button onClick={() => setDeleteConfirm(null)} className="px-3 py-2 bg-[var(--secondary)] hover:bg-[var(--muted)] rounded-lg text-xs transition-colors">Cancel</button>
                     </div>
                   ) : (
-                    <button
-                      onClick={() => setDeleteConfirm(shop.id)}
-                      className="px-3 py-2 text-[var(--muted-foreground)] hover:text-red-400 hover:bg-red-500/10 rounded-lg text-sm transition-colors"
-                      title="Remove store"
-                    >
-                      &times;
-                    </button>
+                    <button onClick={() => setDeleteConfirm(shop.domain)} className="px-3 py-2 text-[var(--muted-foreground)] hover:text-red-400 hover:bg-red-500/10 rounded-lg text-sm transition-colors" title="Remove store">&times;</button>
                   )}
                 </div>
               </div>

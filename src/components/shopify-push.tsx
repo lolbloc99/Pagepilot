@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { getActiveShop, ShopifyShop } from "@/lib/shopify/store";
 
 interface ShopifyTheme {
   id: number;
@@ -17,7 +16,8 @@ interface ShopifyPushProps {
 
 export function ShopifyPush({ template, productTitle }: ShopifyPushProps) {
   const [open, setOpen] = useState(false);
-  const [shop, setShop] = useState<ShopifyShop | null>(null);
+  const [activeDomain, setActiveDomain] = useState<string | null>(null);
+  const [shopName, setShopName] = useState("");
   const [themes, setThemes] = useState<ShopifyTheme[]>([]);
   const [selectedTheme, setSelectedTheme] = useState<number | null>(null);
   const [templateName, setTemplateName] = useState("");
@@ -38,17 +38,14 @@ export function ShopifyPush({ template, productTitle }: ShopifyPushProps) {
     }
   }, [productTitle]);
 
-  async function fetchThemes(activeShop: ShopifyShop) {
+  async function fetchThemes(domain: string) {
     setFetching(true);
     setError("");
     try {
       const res = await fetch("/api/shopify/themes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          domain: activeShop.domain,
-          accessToken: activeShop.accessToken,
-        }),
+        body: JSON.stringify({ domain }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -66,7 +63,7 @@ export function ShopifyPush({ template, productTitle }: ShopifyPushProps) {
   }
 
   async function handlePush() {
-    if (!shop || !selectedTheme || !templateName) return;
+    if (!activeDomain || !selectedTheme || !templateName) return;
     setLoading(true);
     setError("");
     setResult(null);
@@ -75,8 +72,7 @@ export function ShopifyPush({ template, productTitle }: ShopifyPushProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          domain: shop.domain,
-          accessToken: shop.accessToken,
+          domain: activeDomain,
           themeId: selectedTheme,
           templateName,
           template,
@@ -92,14 +88,27 @@ export function ShopifyPush({ template, productTitle }: ShopifyPushProps) {
     }
   }
 
-  function handleOpen() {
+  async function handleOpen() {
     setOpen(true);
     setResult(null);
     setError("");
-    const activeShop = getActiveShop();
-    setShop(activeShop);
-    if (activeShop && themes.length === 0) {
-      fetchThemes(activeShop);
+    const domain = localStorage.getItem("pageforge_active_domain");
+    setActiveDomain(domain);
+
+    if (domain) {
+      // Fetch shop info
+      try {
+        const res = await fetch("/api/shops");
+        if (res.ok) {
+          const data = await res.json();
+          const shop = data.shops.find((s: { domain: string; name: string }) => s.domain === domain);
+          if (shop) setShopName(shop.name);
+        }
+      } catch { /* ignore */ }
+
+      if (themes.length === 0) {
+        fetchThemes(domain);
+      }
     }
   }
 
@@ -125,8 +134,7 @@ export function ShopifyPush({ template, productTitle }: ShopifyPushProps) {
               </button>
             </div>
 
-            {/* No shop connected */}
-            {!shop && (
+            {!activeDomain && (
               <div className="text-center py-6 space-y-4">
                 <div className="w-14 h-14 rounded-2xl bg-[var(--secondary)] flex items-center justify-center mx-auto">
                   <svg className="w-7 h-7 text-[var(--muted-foreground)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -139,43 +147,32 @@ export function ShopifyPush({ template, productTitle }: ShopifyPushProps) {
                     Add a Shopify store first to push templates.
                   </p>
                 </div>
-                <Link
-                  href="/shops"
-                  className="inline-block px-5 py-2.5 bg-[var(--primary)] hover:bg-[var(--primary)]/90 rounded-lg text-sm font-medium transition-colors"
-                >
+                <Link href="/shops" className="inline-block px-5 py-2.5 bg-[var(--primary)] hover:bg-[var(--primary)]/90 rounded-lg text-sm font-medium transition-colors">
                   Go to Shops
                 </Link>
               </div>
             )}
 
-            {/* Loading themes */}
-            {shop && fetching && (
+            {activeDomain && fetching && (
               <div className="flex items-center gap-3 py-8 justify-center">
                 <div className="w-5 h-5 rounded-full border-2 border-[#96bf48] border-t-transparent animate-spin" />
                 <span className="text-sm text-[var(--muted-foreground)]">
-                  Connecting to {shop.name}...
+                  Connecting to {shopName || activeDomain}...
                 </span>
               </div>
             )}
 
-            {/* Push form */}
-            {shop && !fetching && themes.length > 0 && (
+            {activeDomain && !fetching && themes.length > 0 && (
               <div className="space-y-4">
-                {/* Active shop */}
                 <div className="flex items-center gap-3 p-3 rounded-lg bg-[#96bf48]/10 border border-[#96bf48]/30">
                   <div className="w-8 h-8 rounded-lg bg-[#96bf48]/20 flex items-center justify-center">
                     <span className="text-[#96bf48] text-xs font-bold">S</span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{shop.name}</p>
-                    <p className="text-xs text-[var(--muted-foreground)] truncate">{shop.domain}</p>
+                    <p className="text-sm font-medium truncate">{shopName || activeDomain}</p>
+                    <p className="text-xs text-[var(--muted-foreground)] truncate">{activeDomain}</p>
                   </div>
-                  <Link
-                    href="/shops"
-                    className="text-xs text-[var(--muted-foreground)] hover:text-white transition-colors"
-                  >
-                    Change
-                  </Link>
+                  <Link href="/shops" className="text-xs text-[var(--muted-foreground)] hover:text-white transition-colors">Change</Link>
                 </div>
 
                 <div>
@@ -194,37 +191,18 @@ export function ShopifyPush({ template, productTitle }: ShopifyPushProps) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">
-                    Template name
-                  </label>
+                  <label className="block text-sm font-medium mb-1.5">Template name</label>
                   <div className="flex items-center gap-0">
-                    <span className="px-3 py-2.5 bg-[var(--muted)] border border-r-0 border-[var(--border)] rounded-l-lg text-sm text-[var(--muted-foreground)]">
-                      product.
-                    </span>
-                    <input
-                      type="text"
-                      value={templateName}
-                      onChange={(e) => setTemplateName(e.target.value)}
-                      placeholder="my-product"
-                      className="flex-1 px-3 py-2.5 bg-[var(--secondary)] border border-[var(--border)] text-sm"
-                    />
-                    <span className="px-3 py-2.5 bg-[var(--muted)] border border-l-0 border-[var(--border)] rounded-r-lg text-sm text-[var(--muted-foreground)]">
-                      .json
-                    </span>
+                    <span className="px-3 py-2.5 bg-[var(--muted)] border border-r-0 border-[var(--border)] rounded-l-lg text-sm text-[var(--muted-foreground)]">product.</span>
+                    <input type="text" value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="my-product" className="flex-1 px-3 py-2.5 bg-[var(--secondary)] border border-[var(--border)] text-sm" />
+                    <span className="px-3 py-2.5 bg-[var(--muted)] border border-l-0 border-[var(--border)] rounded-r-lg text-sm text-[var(--muted-foreground)]">.json</span>
                   </div>
-                  <p className="text-xs text-[var(--muted-foreground)] mt-1">
-                    Will be saved as templates/product.{templateName || "name"}.json
-                  </p>
                 </div>
 
                 {result && result.success && (
                   <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30">
-                    <p className="text-green-400 text-sm font-medium">
-                      {result.message}
-                    </p>
-                    <p className="text-green-400/70 text-xs mt-1">
-                      Go to Shopify Admin → Products → select a product → assign this template.
-                    </p>
+                    <p className="text-green-400 text-sm font-medium">{result.message}</p>
+                    <p className="text-green-400/70 text-xs mt-1">Assign this template to your product in Shopify admin.</p>
                   </div>
                 )}
 
@@ -235,35 +213,20 @@ export function ShopifyPush({ template, productTitle }: ShopifyPushProps) {
                 )}
 
                 <div className="flex gap-3 pt-2">
-                  <button
-                    onClick={() => setOpen(false)}
-                    className="flex-1 px-4 py-2.5 bg-[var(--secondary)] hover:bg-[var(--muted)] rounded-lg text-sm transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handlePush}
-                    disabled={loading || !templateName || !selectedTheme}
-                    className="flex-1 px-4 py-2.5 bg-[#96bf48] hover:bg-[#7fa93d] disabled:opacity-50 rounded-lg text-sm font-medium text-white transition-colors"
-                  >
+                  <button onClick={() => setOpen(false)} className="flex-1 px-4 py-2.5 bg-[var(--secondary)] hover:bg-[var(--muted)] rounded-lg text-sm transition-colors">Cancel</button>
+                  <button onClick={handlePush} disabled={loading || !templateName || !selectedTheme} className="flex-1 px-4 py-2.5 bg-[#96bf48] hover:bg-[#7fa93d] disabled:opacity-50 rounded-lg text-sm font-medium text-white transition-colors">
                     {loading ? "Pushing..." : result?.success ? "Push Again" : "Push Template"}
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Error state */}
-            {shop && !fetching && themes.length === 0 && error && (
+            {activeDomain && !fetching && themes.length === 0 && error && (
               <div className="space-y-4">
                 <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30">
                   <p className="text-red-400 text-sm">{error}</p>
                 </div>
-                <button
-                  onClick={() => fetchThemes(shop)}
-                  className="w-full px-4 py-2.5 bg-[var(--primary)] hover:bg-[var(--primary)]/90 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Retry
-                </button>
+                <button onClick={() => fetchThemes(activeDomain)} className="w-full px-4 py-2.5 bg-[var(--primary)] hover:bg-[var(--primary)]/90 rounded-lg text-sm font-medium transition-colors">Retry</button>
               </div>
             )}
           </div>
