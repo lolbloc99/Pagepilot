@@ -10,6 +10,7 @@ interface CloneResultProps {
     cssCode: string;
     sectionSchema: string;
     sourceUrl: string;
+    previewHtml?: string;
     images: { src: string; alt: string }[];
   };
   onReset: () => void;
@@ -21,47 +22,6 @@ export function CloneResult({ data, onReset }: CloneResultProps) {
   >("preview");
   const [copied, setCopied] = useState(false);
   const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
-
-  // Build preview HTML from liquid code (strip Liquid tags, keep HTML/CSS)
-  const previewHtml = useMemo(() => {
-    let html = data.fullSection || "";
-
-    // Remove {% schema %} block
-    html = html.replace(/\{%[-\s]*schema[-\s]*%\}[\s\S]*?\{%[-\s]*endschema[-\s]*%\}/gi, "");
-
-    // Replace Liquid output tags with placeholder content
-    html = html.replace(/\{\{-?\s*product\.title\s*-?\}\}/g, "Product Title");
-    html = html.replace(/\{\{-?\s*product\.price\s*\|\s*money\s*-?\}\}/g, "$49.99");
-    html = html.replace(/\{\{-?\s*product\.description\s*-?\}\}/g, "<p>Product description goes here.</p>");
-    html = html.replace(/\{\{-?\s*section\.settings\.([a-zA-Z_]+)\s*\|\s*image_url[^}]*\}\}/g, "https://placehold.co/600x400/f3f4f6/9ca3af?text=Image");
-    html = html.replace(/\{\{-?\s*section\.settings\.([a-zA-Z_]+)\s*-?\}\}/g, (_, key) => {
-      try {
-        const schemaMatch = data.sectionSchema.match(new RegExp(`"id"\\s*:\\s*"${key}"[^}]*"default"\\s*:\\s*"([^"]*)"`, "s"));
-        if (schemaMatch) return schemaMatch[1];
-      } catch { /* ignore */ }
-      return key.replace(/_/g, " ");
-    });
-
-    // Remove remaining Liquid tags
-    html = html.replace(/\{%[-\s]*[^%]*[-\s]*%\}/g, "");
-    html = html.replace(/\{\{[-\s]*[^}]*[-\s]*\}\}/g, "");
-
-    return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1a1a1a; background: #fff; line-height: 1.6; }
-    img { max-width: 100%; height: auto; }
-  </style>
-</head>
-<body>
-${html}
-</body>
-</html>`;
-  }, [data.fullSection, data.sectionSchema]);
 
   async function handleCopy(content: string) {
     try {
@@ -108,7 +68,6 @@ ${html}
     images: "",
   };
 
-  // Wrap as a fake template for ShopifyPush
   const fakeTemplate = useMemo(() => ({
     layout: "theme",
     sections: {
@@ -194,10 +153,13 @@ ${html}
         ))}
       </div>
 
-      {/* Preview tab */}
+      {/* Preview tab — uses original scraped HTML/CSS for accurate rendering */}
       {activeTab === "preview" && (
         <div className="space-y-4">
           <div className="flex items-center gap-2 justify-end">
+            <span className="text-xs text-[var(--muted-foreground)] mr-2">
+              Preview from original page
+            </span>
             <button
               onClick={() => setViewport("desktop")}
               className={`p-2 rounded-lg transition-colors ${viewport === "desktop" ? "bg-[var(--primary)] text-white" : "bg-[var(--secondary)] text-[var(--muted-foreground)]"}`}
@@ -214,13 +176,19 @@ ${html}
             </button>
           </div>
           <div className={`bg-white rounded-xl overflow-hidden shadow-2xl border border-[var(--border)] mx-auto transition-all duration-300 ${viewport === "mobile" ? "max-w-[390px]" : "max-w-full"}`}>
-            <iframe
-              srcDoc={previewHtml}
-              className="w-full border-0"
-              style={{ height: "700px" }}
-              sandbox="allow-same-origin"
-              title="Clone preview"
-            />
+            {data.previewHtml ? (
+              <iframe
+                srcDoc={data.previewHtml}
+                className="w-full border-0"
+                style={{ height: "700px" }}
+                sandbox="allow-same-origin"
+                title="Clone preview"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-[400px] text-gray-400">
+                Preview not available
+              </div>
+            )}
           </div>
         </div>
       )}

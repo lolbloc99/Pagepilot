@@ -130,9 +130,19 @@ export async function POST(req: NextRequest) {
     const lang = language || "Francais";
     const result = await clonePage(mainContent, combinedCss, lang);
 
+    // Build preview HTML from original scraped content (not Liquid)
+    const baseUrl = new URL(url).origin;
+    const previewHtml = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<base href="${baseUrl}/">
+<style>${combinedCss}</style>
+<style>*, *::before, *::after { box-sizing: border-box; } body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }</style>
+</head><body>${mainContent}</body></html>`;
+
     return NextResponse.json({
       ...result,
       sourceUrl: url,
+      previewHtml,
       imagesFound: images.length,
       images: images.slice(0, 20),
     });

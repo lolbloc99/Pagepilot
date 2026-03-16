@@ -25,6 +25,7 @@ export default function Home() {
     cssCode: string;
     sectionSchema: string;
     sourceUrl: string;
+    previewHtml?: string;
     images: { src: string; alt: string }[];
   } | null>(null);
 

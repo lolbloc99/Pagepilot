@@ -29,8 +29,8 @@ export async function clonePage(
     .replace(/@keyframes[^}]*\{[^}]*(\{[^}]*\})*[^}]*\}/gi, "") // remove keyframes
     .replace(/\s{2,}/g, " ");
 
-  const maxHtml = 8000;
-  const maxCss = 4000;
+  const maxHtml = 20000;
+  const maxCss = 10000;
   const trimmedHtml = cleanHtml.length > maxHtml ? cleanHtml.slice(0, maxHtml) + "\n<!-- truncated -->" : cleanHtml;
   const trimmedCss = cleanCss.length > maxCss ? cleanCss.slice(0, maxCss) + "\n/* truncated */" : cleanCss;
 
