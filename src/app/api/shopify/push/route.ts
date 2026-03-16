@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     const msg = error instanceof Error ? error.message : "Failed to push template";
     if (msg.includes("403") || msg.includes("approval") || msg.includes("scope")) {
       return NextResponse.json(
-        { error: "Scope manquant: write_themes. Créez une Custom App dans votre Admin Shopify (Paramètres > Apps > Développer des apps), ajoutez les scopes read_themes et write_themes, installez l'app, puis reconnectez avec le nouveau Client ID/Secret." },
+        { error: "Scope manquant: write_themes. Dans le Dev Dashboard (dev.shopify.com), allez dans votre app > Versions, créez une version avec les scopes read_themes et write_themes, faites Release, réinstallez l'app sur la boutique, puis reconnectez dans PagePilot." },
         { status: 403 }
       );
     }

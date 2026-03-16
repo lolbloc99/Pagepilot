@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     // Fetch shop name
     let shopName = cleanShop;
     try {
-      const apiVersion = process.env.SHOPIFY_API_VERSION || "2024-10";
+      const apiVersion = process.env.SHOPIFY_API_VERSION || "2025-01";
       const shopRes = await fetch(
         `https://${cleanShop}/admin/api/${apiVersion}/shop.json`,
         {
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
       scopes,
       missingScopes: missingScopes.length > 0 ? missingScopes : undefined,
       warning: missingScopes.length > 0
-        ? `Scopes manquants: ${missingScopes.join(", ")}. Créez une Custom App dans votre Admin Shopify (Paramètres > Apps > Développer des apps), ajoutez ces scopes, installez l'app, puis reconnectez avec le nouveau Client ID/Secret.`
+        ? `Scopes manquants: ${missingScopes.join(", ")}. Dans le Dev Dashboard (dev.shopify.com), allez dans votre app > Versions, créez une version avec ces scopes, faites Release, réinstallez l'app, puis reconnectez.`
         : undefined,
     });
   } catch (error) {

@@ -1,4 +1,4 @@
-const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || "2024-10";
+const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || "2025-01";
 
 export interface ShopifyShop {
   id: string;
