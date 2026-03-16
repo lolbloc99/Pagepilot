@@ -26,7 +26,10 @@ export const ScrapedProductSchema = z.object({
   ),
   features: z.array(z.string()),
   vendor: z.string().optional(),
-  tags: z.array(z.string()).optional(),
+  tags: z.union([
+    z.array(z.string()),
+    z.string().transform((s) => s.split(",").map((t) => t.trim()).filter(Boolean)),
+  ]).optional(),
   rating: z
     .object({
       score: z.number(),
