@@ -89,64 +89,63 @@ function filterRelevantCss(css: string, usedClasses: Set<string>): string {
   let cleaned = css
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/@font-face\s*\{[^}]*\}/gi, "")
-    .replace(/@keyframes[\s\S]*?\}\s*\}/gi, "")
-    .replace(/@media print[\s\S]*?\}\s*\}/gi, "");
+    .replace(/@keyframes[^{]*\{(?:[^{}]*\{[^}]*\})*[^}]*\}/gi, "")
+    .replace(/@media\s+print[^{]*\{(?:[^{}]*\{[^}]*\})*[^}]*\}/gi, "");
 
-  // Split into individual rules/blocks
-  // Keep :root, html, body, *, @media, and rules matching used classes
-  const lines: string[] = [];
+  // Parse CSS into top-level blocks (handles nested @media correctly)
+  const blocks: string[] = [];
   let depth = 0;
-  let currentBlock = "";
-  let mediaBlock = "";
-  let inMedia = false;
+  let current = "";
 
-  // Simple approach: keep CSS rules that reference used class names
-  // Split by } and process each rule
-  const rules = cleaned.split("}");
+  for (let i = 0; i < cleaned.length; i++) {
+    const ch = cleaned[i];
+    current += ch;
+    if (ch === "{") depth++;
+    if (ch === "}") {
+      depth--;
+      if (depth <= 0) {
+        blocks.push(current.trim());
+        current = "";
+        depth = 0;
+      }
+    }
+  }
+
   const kept: string[] = [];
 
-  for (let i = 0; i < rules.length; i++) {
-    const rule = rules[i].trim();
-    if (!rule) continue;
+  for (const block of blocks) {
+    if (!block) continue;
 
-    // Track @media blocks
-    if (rule.includes("@media")) {
-      const mediaStart = rule.indexOf("@media");
-      const beforeMedia = rule.slice(0, mediaStart).trim();
-      if (beforeMedia) kept.push(beforeMedia + "}");
+    const selector = block.split("{")[0].trim();
 
-      const mediaRule = rule.slice(mediaStart);
-      kept.push(mediaRule + "}");
+    // Always keep: :root, html, body, *, @media (keep entire media block)
+    if (/^(:root|html|body|\*|@media)/i.test(selector)) {
+      kept.push(block);
       continue;
     }
 
-    const ruleWithClose = rule + "}";
-
-    // Always keep: :root, html, body, *, CSS custom properties
-    if (/^\s*(:root|html|body|\*|@media)/i.test(rule)) {
-      kept.push(ruleWithClose);
-      continue;
-    }
-
-    // Check if any used class appears in this rule's selector
-    const selectorPart = rule.split("{")[0] || "";
+    // Check if any used class appears in the selector
     let isRelevant = false;
-
     for (const cls of usedClasses) {
-      // Escape class name for regex use and check selector
-      const escaped = cls.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      if (new RegExp(`\\.${escaped}(?=[\\s,.:#\\[{>~+)]|$)`).test(selectorPart)) {
+      if (selector.includes("." + cls)) {
         isRelevant = true;
         break;
       }
     }
 
     if (isRelevant) {
-      kept.push(ruleWithClose);
+      kept.push(block);
     }
   }
 
-  return kept.join("\n").replace(/\s{2,}/g, " ").trim();
+  const result = kept.join("\n").replace(/\s{2,}/g, " ").trim();
+
+  // Safety: if CSS is still huge (>100k), truncate but keep it valid
+  if (result.length > 100000) {
+    return result.slice(0, 100000);
+  }
+
+  return result;
 }
 
 export async function clonePage(
