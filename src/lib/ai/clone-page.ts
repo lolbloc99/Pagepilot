@@ -156,9 +156,10 @@ ${sampleHtml}
    - Find the main product image URL and replace with {{ product.featured_image | image_url: width: 1200 }}
 2. "translations": array of {"find": "original text", "replace": "translated text in ${language}"} — for UI labels, buttons, headings
 3. "sectionSchema": a complete Shopify section schema JSON string with:
-   - name: translated section name
-   - settings: image_picker for images, text/richtext for editable content, color for colors
-   - blocks: if the page has repeatable elements (features, specs, etc.)
+   - name: section name in ${language}
+   - settings: image_picker for images, text/richtext for editable content, color for colors — ALL labels in ${language}
+   - blocks: if the page has repeatable elements (features, specs, etc.) — ALL labels in ${language}
+   - presets: [{"name": "section name in ${language}"}]
 
 IMPORTANT:
 - "find" must be EXACT text from the HTML (copy-paste, not paraphrased)
@@ -193,9 +194,13 @@ IMPORTANT:
   console.log(`[Clone] Applied ${replacements.length} replacements + ${translations.length} translations. HTML: ${processedHtml.length} → ${liquidCode.length} chars`);
 
   // Assemble final .liquid file
-  const fullSection = `<style>
-${relevantCss}
-</style>
+  // Use Shopify's stylesheet_tag if CSS is large, otherwise inline
+  const cssInline = relevantCss.length > 200000
+    ? `{%- comment -%}CSS is large - consider moving to assets/cloned-section.css{%- endcomment -%}
+<style>${relevantCss}</style>`
+    : `<style>${relevantCss}</style>`;
+
+  const fullSection = `${cssInline}
 
 <div id="section-{{ section.id }}" class="cloned-section">
 ${liquidCode}
