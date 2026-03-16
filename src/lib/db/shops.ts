@@ -45,6 +45,7 @@ export async function upsertShop(shop: Omit<ShopDoc, "_id" | "updatedAt">): Prom
       },
       $setOnInsert: {
         addedAt: addedAt || new Date(),
+        updatedAt: new Date(),
       },
     },
     { upsert: true }

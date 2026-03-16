@@ -1,3 +1,5 @@
+const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || "2024-10";
+
 export interface ShopifyShop {
   id: string;
   name: string;
@@ -21,7 +23,7 @@ export async function shopifyFetch<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const cleanDomain = domain.replace(/^https?:\/\//, "").replace(/\/$/, "");
-  const url = `https://${cleanDomain}/admin/api/2024-10${endpoint}`;
+  const url = `https://${cleanDomain}/admin/api/${SHOPIFY_API_VERSION}${endpoint}`;
 
   const res = await fetch(url, {
     ...options,
@@ -33,8 +35,16 @@ export async function shopifyFetch<T>(
   });
 
   if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Shopify API ${res.status}: ${body}`);
+    let errorMsg = `Shopify API ${res.status}`;
+    try {
+      const body = await res.json();
+      const details = body.errors || body.error || JSON.stringify(body);
+      errorMsg += `: ${typeof details === "string" ? details : JSON.stringify(details)}`;
+    } catch {
+      const text = await res.text().catch(() => "");
+      if (text) errorMsg += `: ${text.slice(0, 200)}`;
+    }
+    throw new Error(errorMsg);
   }
 
   return res.json();

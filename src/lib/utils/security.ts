@@ -1,13 +1,30 @@
 import { NextResponse } from "next/server";
 
-// Simple in-memory rate limiter
+// Simple in-memory rate limiter with automatic cleanup
 const requestCounts = new Map<string, { count: number; resetAt: number }>();
+
+// Cleanup expired entries every 5 minutes to prevent memory leaks
+const CLEANUP_INTERVAL = 5 * 60 * 1000;
+let lastCleanup = Date.now();
+
+function cleanupExpired() {
+  const now = Date.now();
+  if (now - lastCleanup < CLEANUP_INTERVAL) return;
+  lastCleanup = now;
+  for (const [key, record] of requestCounts) {
+    if (now > record.resetAt) {
+      requestCounts.delete(key);
+    }
+  }
+}
 
 export function rateLimit(
   ip: string,
   maxRequests: number = 10,
   windowMs: number = 60000
 ): NextResponse | null {
+  cleanupExpired();
+
   const now = Date.now();
   const record = requestCounts.get(ip);
 

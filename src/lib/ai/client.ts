@@ -5,6 +5,10 @@ const PROVIDER = process.env.AI_PROVIDER || "groq";
 const API_KEY = process.env.AI_API_KEY || "";
 const MODEL = process.env.AI_MODEL || "";
 
+if (!API_KEY && PROVIDER !== "ollama") {
+  console.warn("[AI] Warning: AI_API_KEY is not set. AI calls will fail.");
+}
+
 const FALLBACK_PROVIDER = process.env.AI_FALLBACK_PROVIDER || "";
 const FALLBACK_API_KEY = process.env.AI_FALLBACK_API_KEY || "";
 const FALLBACK_MODEL = process.env.AI_FALLBACK_MODEL || "";

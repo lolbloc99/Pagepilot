@@ -174,6 +174,16 @@ export function ResultView({
   );
 }
 
+// Basic HTML sanitizer — strips script tags, event handlers, and dangerous attributes
+function sanitizeHtml(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
+    .replace(/\son\w+="[^"]*"/gi, "")
+    .replace(/\son\w+='[^']*'/gi, "")
+    .replace(/javascript:/gi, "");
+}
+
 function ContentPreview({ content }: { content: Record<string, unknown> }) {
   const title = content.title as string;
   const subtitle = content.subtitle as string;
@@ -226,7 +236,7 @@ function ContentPreview({ content }: { content: Record<string, unknown> }) {
           </h3>
           <div
             className="prose prose-invert prose-sm max-w-none"
-            dangerouslySetInnerHTML={{ __html: description }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(description) }}
           />
         </div>
       )}
@@ -247,7 +257,7 @@ function ContentPreview({ content }: { content: Record<string, unknown> }) {
                 </summary>
                 <div
                   className="px-4 pb-3 text-sm text-[var(--muted-foreground)]"
-                  dangerouslySetInnerHTML={{ __html: tab.content }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(tab.content) }}
                 />
               </details>
             ))}

@@ -189,7 +189,17 @@ IMPORTANT:
     }
   }
 
-  const sectionSchema = String(raw.sectionSchema || raw.section_schema || raw.schema || "");
+  // Validate sectionSchema is valid JSON, fallback if not
+  let sectionSchema = "";
+  const rawSchema = String(raw.sectionSchema || raw.section_schema || raw.schema || "");
+  if (rawSchema) {
+    try {
+      JSON.parse(rawSchema);
+      sectionSchema = rawSchema;
+    } catch {
+      console.warn("[Clone] Invalid sectionSchema JSON from AI, using fallback");
+    }
+  }
 
   console.log(`[Clone] Applied ${replacements.length} replacements + ${translations.length} translations. HTML: ${processedHtml.length} → ${liquidCode.length} chars`);
 

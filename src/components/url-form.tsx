@@ -1,29 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-const LANGUAGES = [
-  "Francais",
-  "English",
-  "Espanol",
-  "Deutsch",
-  "Italiano",
-  "Portugues",
-  "Nederlands",
-  "Polski",
-  "Svenska",
-  "Norsk",
-  "Dansk",
-  "Suomi",
-  "Cesky",
-  "Magyar",
-  "Romana",
-  "Turkce",
-  "Arabic",
-  "Japanese",
-  "Korean",
-  "Chinese (Simplified)",
-];
+import { LANGUAGES } from "@/lib/constants";
 
 const TONES = [
   { value: "professional", label: "Professionnel" },
