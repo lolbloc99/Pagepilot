@@ -161,63 +161,68 @@ export async function clonePage(
   const usedClasses = extractUsedClasses(processedHtml);
   const relevantCss = filterRelevantCss(css, usedClasses);
 
-  // Step 3: AI — minimal task: inject Liquid tags for dynamic content + translate text + create schema
-  const system = `You are an expert Shopify Liquid developer. You receive pre-cleaned HTML and make minimal, surgical changes to convert it to a working Shopify Liquid section.
+  // Step 3: AI — "find & replace" approach
+  // Instead of asking AI to reproduce all HTML (which causes truncation),
+  // we ask it to return a LIST of replacements to apply server-side.
+  const system = `You are an expert Shopify Liquid developer. You analyze HTML and return a list of text replacements to convert it into a Shopify Liquid section.
 
-ABSOLUTE RULES:
-1. Output the COMPLETE HTML — every single line. Never abbreviate or skip content.
-2. Never write "<!-- rest of content -->", "<!-- more sections -->", or any placeholder comments.
-3. Keep ALL class names, IDs, and HTML structure EXACTLY as provided.
-4. Do NOT output any CSS or <style> tags.
-5. Make ONLY these specific changes:
-   - Replace the product title text with {{ product.title }}
-   - Replace prices with {{ product.price | money }}
-   - Replace product description with {{ product.description }}
-   - Replace main product image src with {{ product.featured_image | image_url: width: 1200 }}
-   - Replace other image src with {{ section.settings.image_N | image_url: width: 800 }} where N is a number
-   - Replace heading/text content with {{ section.settings.heading_N }} or {{ section.settings.text_N }}
-   - Translate button text and UI labels to ${language}
-6. The HTML you receive is ALREADY cleaned. Do not restructure it.
-7. If the HTML is long, you MUST output ALL of it. Completeness is critical.`;
+You do NOT reproduce the HTML. You only return replacements.`;
 
-  // Limit HTML sent to AI — but keep more since we only ask for surgical changes
-  const maxHtml = 30000;
-  const trimmedHtml = processedHtml.length > maxHtml
+  // Send a representative sample of the HTML (first 15k) for analysis
+  const maxHtml = 15000;
+  const sampleHtml = processedHtml.length > maxHtml
     ? processedHtml.slice(0, maxHtml)
     : processedHtml;
 
-  const userMessage = `Make minimal Liquid changes to this HTML. Output the COMPLETE HTML back with only Liquid tags added where appropriate.
+  const userMessage = `Analyze this HTML from a product page and return replacements to make it a Shopify Liquid section.
 
-## Pre-cleaned HTML:
-${trimmedHtml}
+## HTML sample:
+${sampleHtml}
 
-## Task:
-1. Replace product-specific content with Liquid objects ({{ product.title }}, {{ product.price | money }}, etc.)
-2. Replace editable text/images with {{ section.settings.xxx }}
-3. Translate visible UI text to ${language}
-4. Create a schema JSON with settings for all replaceable content
+## Return a JSON object with:
+1. "replacements": array of {"find": "exact text to find", "replace": "Liquid replacement"} — these will be applied with string.replace()
+   - Find the product title text and replace with {{ product.title }}
+   - Find prices (e.g. "€1.499,00" or "$29.99") and replace with {{ product.price | money }}
+   - Find "Add to cart" / "In den Warenkorb" type buttons text and replace with translated text + Liquid
+   - Find product description paragraphs and replace with {{ product.description }}
+   - Find the main product image URL and replace with {{ product.featured_image | image_url: width: 1200 }}
+2. "translations": array of {"find": "original text", "replace": "translated text in ${language}"} — for UI labels, buttons, headings
+3. "sectionSchema": a complete Shopify section schema JSON string with:
+   - name: translated section name
+   - settings: image_picker for images, text/richtext for editable content, color for colors
+   - blocks: if the page has repeatable elements (features, specs, etc.)
 
-Return JSON:
-{
-  "liquidCode": "The COMPLETE HTML with Liquid tags injected (NO CSS, NO style tags)",
-  "sectionSchema": "The schema JSON for {% schema %}...{% endschema %}"
-}
+IMPORTANT:
+- "find" must be EXACT text from the HTML (copy-paste, not paraphrased)
+- Keep replacements minimal — only replace dynamic product content
+- For images, find the full src="..." value and replace the URL part only
+- Return ONLY valid JSON, no markdown fences.`;
 
-CRITICAL: Output the ENTIRE HTML, not a summary. Every div, every class, every element.
-Return ONLY valid JSON.`;
-
-  const text = await chatCompletion(system, userMessage, 32768);
+  const text = await chatCompletion(system, userMessage, 8192);
   const raw = parseAIJson<Record<string, unknown>>(text);
 
-  let liquidCode = String(raw.liquidCode || raw.liquid_code || raw.liquid || "");
+  // Apply replacements to the full processed HTML
+  let liquidCode = processedHtml;
+
+  const replacements = Array.isArray(raw.replacements) ? raw.replacements : [];
+  const translations = Array.isArray(raw.translations) ? raw.translations : [];
+
+  for (const r of [...replacements, ...translations]) {
+    const find = String(r.find || "");
+    const replace = String(r.replace || "");
+    if (find && replace && find !== replace) {
+      // Use string replace (first occurrence for product-specific, all for UI labels)
+      if (translations.includes(r)) {
+        liquidCode = liquidCode.split(find).join(replace);
+      } else {
+        liquidCode = liquidCode.replace(find, replace);
+      }
+    }
+  }
+
   const sectionSchema = String(raw.sectionSchema || raw.section_schema || raw.schema || "");
 
-  // If AI truncated/shortened the HTML (common issue), use the server-cleaned HTML as fallback
-  // and just prepend the Liquid assignments
-  if (liquidCode.length < processedHtml.length * 0.3) {
-    console.log(`[Clone] AI output too short (${liquidCode.length} vs ${processedHtml.length}). Using server-cleaned HTML with basic Liquid.`);
-    liquidCode = processedHtml;
-  }
+  console.log(`[Clone] Applied ${replacements.length} replacements + ${translations.length} translations. HTML: ${processedHtml.length} → ${liquidCode.length} chars`);
 
   // Assemble final .liquid file
   const fullSection = `<style>
