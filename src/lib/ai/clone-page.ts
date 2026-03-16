@@ -12,69 +12,90 @@ export async function clonePage(
   css: string,
   language: string
 ): Promise<ClonedPage> {
-  const system = `You are an expert Shopify Liquid developer. You convert HTML/CSS pages into clean, production-ready Shopify Liquid sections. You produce pixel-perfect clones using only Liquid, HTML, and inline/scoped CSS. No external dependencies.`;
+  const system = `You are an expert Shopify Liquid developer. Your job is to convert HTML into Shopify Liquid sections.
 
-  // Clean and truncate to stay within token limits
+CRITICAL RULES:
+- You ONLY convert the HTML structure to Liquid. You do NOT touch or reproduce CSS.
+- The CSS will be injected separately — never output CSS, never write "/* all styles */" or any placeholder.
+- Output REAL, COMPLETE HTML with Liquid tags. Never abbreviate, never use comments like "<!-- rest of content -->".
+- Every single visible element from the source HTML must appear in your output.
+- Keep ALL original class names and HTML structure exactly as-is.
+- Only add Liquid template tags ({{ }}, {% %}) where appropriate.`;
+
+  // Clean HTML — keep class names intact for CSS matching
   let cleanHtml = html
-    .replace(/\s{2,}/g, " ")               // collapse whitespace
-    .replace(/data-[a-z-]+="[^"]*"/gi, "") // remove data attributes
-    .replace(/class="[^"]{100,}"/gi, (m) => `class="${m.slice(7, 80)}"`) // truncate long classes
-    .replace(/style="[^"]{200,}"/gi, (m) => `style="${m.slice(7, 150)}"`) // truncate long inline styles
-    .replace(/<link[^>]*>/gi, "")           // remove link tags
-    .replace(/<meta[^>]*>/gi, "");          // remove meta tags
+    .replace(/\s{2,}/g, " ")
+    .replace(/data-[a-z-]+="[^"]*"/gi, "")
+    .replace(/<link[^>]*>/gi, "")
+    .replace(/<meta[^>]*>/gi, "");
 
-  let cleanCss = css
-    .replace(/@media print[^}]*\{[^}]*\}/gi, "") // remove print styles
-    .replace(/@font-face\s*\{[^}]*\}/gi, "")     // remove font-face
-    .replace(/@keyframes[^}]*\{[^}]*(\{[^}]*\})*[^}]*\}/gi, "") // remove keyframes
-    .replace(/\s{2,}/g, " ");
+  const maxHtml = 25000;
+  const trimmedHtml = cleanHtml.length > maxHtml
+    ? cleanHtml.slice(0, maxHtml) + "\n<!-- truncated -->"
+    : cleanHtml;
 
-  const maxHtml = 20000;
-  const maxCss = 10000;
-  const trimmedHtml = cleanHtml.length > maxHtml ? cleanHtml.slice(0, maxHtml) + "\n<!-- truncated -->" : cleanHtml;
-  const trimmedCss = cleanCss.length > maxCss ? cleanCss.slice(0, maxCss) + "\n/* truncated */" : cleanCss;
+  const userMessage = `Convert this HTML into a Shopify Liquid section. Keep ALL original class names and structure.
 
-  const userMessage = `Convert this product page HTML/CSS into a complete Shopify Liquid custom section file.
-
-## Source HTML (cleaned):
+## Source HTML:
 \`\`\`html
 ${trimmedHtml}
 \`\`\`
 
-## Source CSS (extracted):
-\`\`\`css
-${trimmedCss}
-\`\`\`
+## Instructions:
+1. Convert the HTML to use Shopify Liquid template tags where appropriate:
+   - Product title: {{ product.title }}
+   - Product price: {{ product.price | money }}
+   - Product description: {{ product.description }}
+   - Images: {{ section.settings.image | image_url: width: 800 }} or {{ product.featured_image | image_url: width: 800 }}
+   - Text content: {{ section.settings.heading }}, {{ section.settings.text }}, etc.
+2. Translate all visible text to **${language}**
+3. Keep ALL original class names exactly as they are (the CSS depends on them)
+4. Keep the full HTML structure — do NOT simplify or abbreviate anything
+5. Create a {% schema %} block with settings for all editable text, images, colors, and buttons
+6. Do NOT output any CSS — it will be added separately
+7. Do NOT use placeholders like "<!-- more content -->" — output the COMPLETE HTML
 
-## Requirements:
-1. Create a SINGLE Shopify section .liquid file that contains everything
-2. All text content must be in **${language}**
-3. Include a {% schema %} block at the bottom with editable settings for all text, images, colors
-4. Use Shopify's {{ section.settings.xxx }} for dynamic content
-5. Scope ALL CSS inside <style> tags with a unique section class to avoid conflicts
-6. Use {{ product.title }}, {{ product.price | money }}, {{ product.description }} where appropriate
-7. Make images use {{ section.settings.image | image_url }} or product images
-8. Keep the EXACT same visual layout, spacing, colors, fonts, animations
-9. Make it fully responsive (mobile + desktop)
-10. Replace any competitor branding/logos with Shopify dynamic content
-
-Return a JSON object with:
+Return a JSON object:
 {
-  "fullSection": "The complete .liquid file content including <style>, HTML with Liquid, and {% schema %}",
-  "liquidCode": "Just the HTML/Liquid part without style and schema",
-  "cssCode": "Just the CSS code",
-  "sectionSchema": "Just the {% schema %} JSON content"
+  "liquidCode": "The complete HTML with Liquid tags (NO <style> tags, NO CSS)",
+  "sectionSchema": "The {% schema %} JSON content (just the JSON inside {% schema %}...{% endschema %})"
 }
 
-Return ONLY the JSON, no markdown fences.`;
+Return ONLY valid JSON, no markdown fences.`;
 
   const text = await chatCompletion(system, userMessage, 32768);
   const raw = parseAIJson<Record<string, unknown>>(text);
 
+  const liquidCode = String(raw.liquidCode || raw.liquid_code || raw.liquid || "");
+  const sectionSchema = String(raw.sectionSchema || raw.section_schema || raw.schema || "");
+
+  // Clean CSS: remove print, font-face, keyframes, comments, collapse whitespace
+  const cleanCss = css
+    .replace(/@media print[^}]*\{[^}]*\}/gi, "")
+    .replace(/@font-face\s*\{[^}]*\}/gi, "")
+    .replace(/@keyframes[^}]*\{[^}]*(\{[^}]*\})*[^}]*\}/gi, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+  // Assemble the full .liquid file: original CSS + Liquid HTML + schema
+  // Use Shopify's built-in section id for scoping
+  const fullSection = `<style>
+${cleanCss}
+</style>
+
+<div id="section-{{ section.id }}" class="cloned-section">
+${liquidCode}
+</div>
+
+{% schema %}
+${sectionSchema}
+{% endschema %}`;
+
   return {
-    fullSection: String(raw.fullSection || raw.full_section || ""),
-    liquidCode: String(raw.liquidCode || raw.liquid_code || raw.liquid || ""),
-    cssCode: String(raw.cssCode || raw.css_code || raw.css || ""),
-    sectionSchema: String(raw.sectionSchema || raw.section_schema || raw.schema || ""),
+    fullSection,
+    liquidCode,
+    cssCode: cleanCss,
+    sectionSchema,
   };
 }

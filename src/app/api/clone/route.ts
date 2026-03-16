@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     });
 
     const externalCss = await Promise.all(
-      stylesheetUrls.slice(0, 2).map(async (cssUrl) => {
+      stylesheetUrls.slice(0, 5).map(async (cssUrl) => {
         try {
           const ctrl = new AbortController();
           const t = setTimeout(() => ctrl.abort(), 5000);
