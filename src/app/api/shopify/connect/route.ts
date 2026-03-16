@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
       scopes,
       missingScopes: missingScopes.length > 0 ? missingScopes : undefined,
       warning: missingScopes.length > 0
-        ? `Scopes manquants: ${missingScopes.join(", ")}. Ajoutez-les dans Shopify Partners > App > Configuration, puis reinstallez l'app.`
+        ? `Scopes manquants: ${missingScopes.join(", ")}. Créez une Custom App dans votre Admin Shopify (Paramètres > Apps > Développer des apps), ajoutez ces scopes, installez l'app, puis reconnectez avec le nouveau Client ID/Secret.`
         : undefined,
     });
   } catch (error) {

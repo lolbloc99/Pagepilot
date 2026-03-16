@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     // Detect scope issues
     if (msg.includes("403") || msg.includes("approval") || msg.includes("scope")) {
       return NextResponse.json(
-        { error: "Scope manquant: read_themes. Dans Shopify Partners > App > Configuration, ajoutez les scopes read_themes et write_themes, puis reinstallez l'app sur la boutique et reconnectez-la dans PagePilot." },
+        { error: "Scope manquant: read_themes. Créez une Custom App dans votre Admin Shopify (Paramètres > Apps > Développer des apps), ajoutez les scopes read_themes et write_themes, installez l'app, puis reconnectez avec le nouveau Client ID/Secret." },
         { status: 403 }
       );
     }

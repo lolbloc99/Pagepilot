@@ -189,13 +189,14 @@ export default function ShopsPage() {
                 </div>
               </div>
               <div className="p-4 rounded-lg bg-[var(--secondary)] border border-[var(--border)]">
-                <p className="text-sm font-medium mb-2">How to get your credentials:</p>
+                <p className="text-sm font-medium mb-2">⚠️ Important: Create a <strong className="text-[var(--foreground)]">Custom App</strong> in your Shopify Admin (NOT in Shopify Partners)</p>
                 <ol className="text-xs text-[var(--muted-foreground)] space-y-1.5 list-decimal list-inside">
-                  <li>Go to <strong className="text-[var(--foreground)]">Settings &gt; Apps and sales channels &gt; Develop apps</strong> on your Shopify admin</li>
-                  <li>Create or select your app, go to <strong className="text-[var(--foreground)]">Configuration &gt; Admin API access scopes</strong></li>
-                  <li>Add scopes: <strong className="text-[var(--foreground)]">read_themes</strong> and <strong className="text-[var(--foreground)]">write_themes</strong>, then save</li>
-                  <li><strong className="text-[var(--foreground)]">Install the app</strong> on the store (or reinstall if scopes changed)</li>
-                  <li>Go to <strong className="text-[var(--foreground)]">API credentials</strong>, copy <strong className="text-[var(--foreground)]">Client ID</strong> and <strong className="text-[var(--foreground)]">Client secret</strong></li>
+                  <li>Go to your <strong className="text-[var(--foreground)]">Shopify Admin</strong> → <strong className="text-[var(--foreground)]">Settings</strong> → <strong className="text-[var(--foreground)]">Apps and sales channels</strong></li>
+                  <li>Click <strong className="text-[var(--foreground)]">Develop apps</strong> (top right). If first time, click &quot;Allow custom app development&quot;</li>
+                  <li>Click <strong className="text-[var(--foreground)]">Create an app</strong> → name it (e.g. &quot;PagePilot&quot;)</li>
+                  <li>Click <strong className="text-[var(--foreground)]">Configure Admin API scopes</strong> → check <strong className="text-[var(--foreground)]">read_themes</strong> and <strong className="text-[var(--foreground)]">write_themes</strong> → Save</li>
+                  <li>Click <strong className="text-[var(--foreground)]">Install app</strong> and confirm</li>
+                  <li>Go to <strong className="text-[var(--foreground)]">API credentials</strong> tab → copy <strong className="text-[var(--foreground)]">Client ID</strong> and <strong className="text-[var(--foreground)]">Client secret</strong> (under &quot;Client secret&quot;, click Reveal)</li>
                 </ol>
               </div>
               {error && (
