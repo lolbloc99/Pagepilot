@@ -46,8 +46,9 @@ export async function POST(req: NextRequest) {
     // Fetch shop name
     let shopName = cleanShop;
     try {
+      const apiVersion = process.env.SHOPIFY_API_VERSION || "2024-10";
       const shopRes = await fetch(
-        `https://${cleanShop}/admin/api/2024-10/shop.json`,
+        `https://${cleanShop}/admin/api/${apiVersion}/shop.json`,
         {
           headers: {
             "X-Shopify-Access-Token": accessToken,
@@ -75,11 +76,21 @@ export async function POST(req: NextRequest) {
       addedAt: new Date(),
     });
 
+    // Check if required scopes are present
+    const requiredScopes = ["read_themes", "write_themes"];
+    const grantedScopes = scopes.split(",").map((s: string) => s.trim());
+    const missingScopes = requiredScopes.filter(s => !grantedScopes.includes(s));
+
     return NextResponse.json({
       success: true,
       shopName,
       domain: cleanShop,
       expiresIn,
+      scopes,
+      missingScopes: missingScopes.length > 0 ? missingScopes : undefined,
+      warning: missingScopes.length > 0
+        ? `Scopes manquants: ${missingScopes.join(", ")}. Ajoutez-les dans Shopify Partners > App > Configuration, puis reinstallez l'app.`
+        : undefined,
     });
   } catch (error) {
     console.error("Shopify connect error:", error);

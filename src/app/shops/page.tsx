@@ -66,7 +66,10 @@ export default function ShopsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Connection failed");
 
-      setSuccess(`${data.shopName} connected successfully!`);
+      const msg = data.warning
+        ? `${data.shopName} connecte. ⚠️ ${data.warning}`
+        : `${data.shopName} connected successfully!`;
+      setSuccess(msg);
       localStorage.setItem("pageforge_active_domain", data.domain);
       setActiveDomain(data.domain);
       setShowAdd(false);
@@ -189,9 +192,10 @@ export default function ShopsPage() {
                 <p className="text-sm font-medium mb-2">How to get your credentials:</p>
                 <ol className="text-xs text-[var(--muted-foreground)] space-y-1.5 list-decimal list-inside">
                   <li>Go to <strong className="text-[var(--foreground)]">Settings &gt; Apps and sales channels &gt; Develop apps</strong> on your Shopify admin</li>
-                  <li>Create or select your app, then go to <strong className="text-[var(--foreground)]">API credentials</strong></li>
-                  <li>Copy the <strong className="text-[var(--foreground)]">Client ID</strong> and <strong className="text-[var(--foreground)]">Client secret</strong></li>
-                  <li>Make sure the app is <strong className="text-[var(--foreground)]">installed</strong> on the store with <strong className="text-[var(--foreground)]">write_themes</strong> scope</li>
+                  <li>Create or select your app, go to <strong className="text-[var(--foreground)]">Configuration &gt; Admin API access scopes</strong></li>
+                  <li>Add scopes: <strong className="text-[var(--foreground)]">read_themes</strong> and <strong className="text-[var(--foreground)]">write_themes</strong>, then save</li>
+                  <li><strong className="text-[var(--foreground)]">Install the app</strong> on the store (or reinstall if scopes changed)</li>
+                  <li>Go to <strong className="text-[var(--foreground)]">API credentials</strong>, copy <strong className="text-[var(--foreground)]">Client ID</strong> and <strong className="text-[var(--foreground)]">Client secret</strong></li>
                 </ol>
               </div>
               {error && (

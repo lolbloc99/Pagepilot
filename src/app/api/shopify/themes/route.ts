@@ -18,8 +18,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ themes });
   } catch (error) {
     console.error("Shopify themes error:", error);
+    const msg = error instanceof Error ? error.message : "Failed to fetch themes";
+    // Detect scope issues
+    if (msg.includes("403") || msg.includes("approval") || msg.includes("scope")) {
+      return NextResponse.json(
+        { error: "Scope manquant: read_themes. Dans Shopify Partners > App > Configuration, ajoutez les scopes read_themes et write_themes, puis reinstallez l'app sur la boutique et reconnectez-la dans PagePilot." },
+        { status: 403 }
+      );
+    }
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to fetch themes" },
+      { error: msg },
       { status: 500 }
     );
   }
