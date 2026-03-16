@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
@@ -13,6 +13,14 @@ interface Shop {
 }
 
 export default function ShopsPage() {
+  return (
+    <Suspense>
+      <ShopsContent />
+    </Suspense>
+  );
+}
+
+function ShopsContent() {
   const [shops, setShops] = useState<Shop[]>([]);
   const [activeDomain, setActiveDomain] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
