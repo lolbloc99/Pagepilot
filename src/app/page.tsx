@@ -78,11 +78,17 @@ export default function Home() {
     setCloneData(null);
 
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 180000); // 3 min
+
       const res = await fetch("/api/clone", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url, language }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeout);
 
       if (!res.ok) {
         const data = await res.json();
@@ -93,7 +99,11 @@ export default function Home() {
       setCloneData(result);
       setStep("done");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      if (err instanceof Error && err.name === "AbortError") {
+        setError("Le clonage a pris trop de temps (timeout 3 min). Essayez avec une page plus simple.");
+      } else {
+        setError(err instanceof Error ? err.message : "An error occurred");
+      }
       setStep("error");
     }
   }

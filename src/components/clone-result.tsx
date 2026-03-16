@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { ShopifyPush } from "./shopify-push";
 
 interface CloneResultProps {
   data: {
@@ -16,9 +17,51 @@ interface CloneResultProps {
 
 export function CloneResult({ data, onReset }: CloneResultProps) {
   const [activeTab, setActiveTab] = useState<
-    "full" | "liquid" | "css" | "schema" | "images"
-  >("full");
+    "preview" | "full" | "liquid" | "css" | "schema" | "images"
+  >("preview");
   const [copied, setCopied] = useState(false);
+  const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
+
+  // Build preview HTML from liquid code (strip Liquid tags, keep HTML/CSS)
+  const previewHtml = useMemo(() => {
+    let html = data.fullSection || "";
+
+    // Remove {% schema %} block
+    html = html.replace(/\{%[-\s]*schema[-\s]*%\}[\s\S]*?\{%[-\s]*endschema[-\s]*%\}/gi, "");
+
+    // Replace Liquid output tags with placeholder content
+    html = html.replace(/\{\{-?\s*product\.title\s*-?\}\}/g, "Product Title");
+    html = html.replace(/\{\{-?\s*product\.price\s*\|\s*money\s*-?\}\}/g, "$49.99");
+    html = html.replace(/\{\{-?\s*product\.description\s*-?\}\}/g, "<p>Product description goes here.</p>");
+    html = html.replace(/\{\{-?\s*section\.settings\.([a-zA-Z_]+)\s*\|\s*image_url[^}]*\}\}/g, "https://placehold.co/600x400/f3f4f6/9ca3af?text=Image");
+    html = html.replace(/\{\{-?\s*section\.settings\.([a-zA-Z_]+)\s*-?\}\}/g, (_, key) => {
+      try {
+        const schemaMatch = data.sectionSchema.match(new RegExp(`"id"\\s*:\\s*"${key}"[^}]*"default"\\s*:\\s*"([^"]*)"`, "s"));
+        if (schemaMatch) return schemaMatch[1];
+      } catch { /* ignore */ }
+      return key.replace(/_/g, " ");
+    });
+
+    // Remove remaining Liquid tags
+    html = html.replace(/\{%[-\s]*[^%]*[-\s]*%\}/g, "");
+    html = html.replace(/\{\{[-\s]*[^}]*[-\s]*\}\}/g, "");
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1a1a1a; background: #fff; line-height: 1.6; }
+    img { max-width: 100%; height: auto; }
+  </style>
+</head>
+<body>
+${html}
+</body>
+</html>`;
+  }, [data.fullSection, data.sectionSchema]);
 
   async function handleCopy(content: string) {
     try {
@@ -48,6 +91,7 @@ export function CloneResult({ data, onReset }: CloneResultProps) {
   }
 
   const tabs = [
+    { id: "preview" as const, label: "Preview" },
     { id: "full" as const, label: "Full Section (.liquid)" },
     { id: "liquid" as const, label: "Liquid/HTML" },
     { id: "css" as const, label: "CSS" },
@@ -56,12 +100,26 @@ export function CloneResult({ data, onReset }: CloneResultProps) {
   ];
 
   const contentMap = {
+    preview: "",
     full: data.fullSection,
     liquid: data.liquidCode,
     css: data.cssCode,
     schema: data.sectionSchema,
     images: "",
   };
+
+  // Wrap as a fake template for ShopifyPush
+  const fakeTemplate = useMemo(() => ({
+    layout: "theme",
+    sections: {
+      "cloned-section": {
+        type: "cloned-section",
+        settings: {},
+      },
+    },
+    order: ["cloned-section"],
+    _liquid: data.fullSection,
+  }), [data.fullSection]);
 
   return (
     <div className="space-y-6">
@@ -73,7 +131,7 @@ export function CloneResult({ data, onReset }: CloneResultProps) {
             Source: {data.sourceUrl}
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap justify-end">
           <button
             onClick={onReset}
             className="px-4 py-2.5 bg-[var(--secondary)] hover:bg-[var(--muted)] rounded-lg transition-colors text-sm"
@@ -92,6 +150,7 @@ export function CloneResult({ data, onReset }: CloneResultProps) {
           >
             Download .liquid
           </button>
+          <ShopifyPush template={fakeTemplate} productTitle="cloned-section" />
         </div>
       </div>
 
@@ -119,7 +178,7 @@ export function CloneResult({ data, onReset }: CloneResultProps) {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-[var(--card)] p-1 rounded-lg w-fit">
+      <div className="flex gap-1 bg-[var(--card)] p-1 rounded-lg w-fit flex-wrap">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -135,38 +194,71 @@ export function CloneResult({ data, onReset }: CloneResultProps) {
         ))}
       </div>
 
-      {/* Content */}
-      <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl overflow-hidden">
-        {activeTab !== "images" && (
-          <pre className="p-6 overflow-auto max-h-[600px] text-sm font-mono leading-relaxed text-green-400 whitespace-pre-wrap">
-            {contentMap[activeTab]}
-          </pre>
-        )}
-
-        {activeTab === "images" && (
-          <div className="p-6 grid grid-cols-4 gap-4 max-h-[600px] overflow-auto">
-            {data.images?.map((img, i) => (
-              <div key={i} className="space-y-2">
-                <div className="aspect-square rounded-lg overflow-hidden bg-[var(--secondary)]">
-                  <img
-                    src={img.src}
-                    alt={img.alt || `Image ${i + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <p className="text-xs text-[var(--muted-foreground)] truncate">
-                  {img.alt || img.src.split("/").pop()}
-                </p>
-              </div>
-            ))}
-            {(!data.images || data.images.length === 0) && (
-              <p className="col-span-4 text-center text-[var(--muted-foreground)] py-12">
-                No images found
-              </p>
-            )}
+      {/* Preview tab */}
+      {activeTab === "preview" && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 justify-end">
+            <button
+              onClick={() => setViewport("desktop")}
+              className={`p-2 rounded-lg transition-colors ${viewport === "desktop" ? "bg-[var(--primary)] text-white" : "bg-[var(--secondary)] text-[var(--muted-foreground)]"}`}
+              title="Desktop"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25A2.25 2.25 0 015.25 3h13.5A2.25 2.25 0 0121 5.25z" /></svg>
+            </button>
+            <button
+              onClick={() => setViewport("mobile")}
+              className={`p-2 rounded-lg transition-colors ${viewport === "mobile" ? "bg-[var(--primary)] text-white" : "bg-[var(--secondary)] text-[var(--muted-foreground)]"}`}
+              title="Mobile"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" /></svg>
+            </button>
           </div>
-        )}
-      </div>
+          <div className={`bg-white rounded-xl overflow-hidden shadow-2xl border border-[var(--border)] mx-auto transition-all duration-300 ${viewport === "mobile" ? "max-w-[390px]" : "max-w-full"}`}>
+            <iframe
+              srcDoc={previewHtml}
+              className="w-full border-0"
+              style={{ height: "700px" }}
+              sandbox="allow-same-origin"
+              title="Clone preview"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Code tabs */}
+      {activeTab !== "preview" && (
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl overflow-hidden">
+          {activeTab !== "images" && (
+            <pre className="p-6 overflow-auto max-h-[600px] text-sm font-mono leading-relaxed text-green-400 whitespace-pre-wrap">
+              {contentMap[activeTab]}
+            </pre>
+          )}
+
+          {activeTab === "images" && (
+            <div className="p-6 grid grid-cols-4 gap-4 max-h-[600px] overflow-auto">
+              {data.images?.map((img, i) => (
+                <div key={i} className="space-y-2">
+                  <div className="aspect-square rounded-lg overflow-hidden bg-[var(--secondary)]">
+                    <img
+                      src={img.src}
+                      alt={img.alt || `Image ${i + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <p className="text-xs text-[var(--muted-foreground)] truncate">
+                    {img.alt || img.src.split("/").pop()}
+                  </p>
+                </div>
+              ))}
+              {(!data.images || data.images.length === 0) && (
+                <p className="col-span-4 text-center text-[var(--muted-foreground)] py-12">
+                  No images found
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
