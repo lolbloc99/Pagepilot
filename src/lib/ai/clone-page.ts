@@ -14,11 +14,25 @@ export async function clonePage(
 ): Promise<ClonedPage> {
   const system = `You are an expert Shopify Liquid developer. You convert HTML/CSS pages into clean, production-ready Shopify Liquid sections. You produce pixel-perfect clones using only Liquid, HTML, and inline/scoped CSS. No external dependencies.`;
 
-  // Truncate intelligently to stay within token limits
-  const maxHtml = 15000;
-  const maxCss = 8000;
-  const trimmedHtml = html.length > maxHtml ? html.slice(0, maxHtml) + "\n<!-- truncated -->" : html;
-  const trimmedCss = css.length > maxCss ? css.slice(0, maxCss) + "\n/* truncated */" : css;
+  // Clean and truncate to stay within token limits
+  let cleanHtml = html
+    .replace(/\s{2,}/g, " ")               // collapse whitespace
+    .replace(/data-[a-z-]+="[^"]*"/gi, "") // remove data attributes
+    .replace(/class="[^"]{100,}"/gi, (m) => `class="${m.slice(7, 80)}"`) // truncate long classes
+    .replace(/style="[^"]{200,}"/gi, (m) => `style="${m.slice(7, 150)}"`) // truncate long inline styles
+    .replace(/<link[^>]*>/gi, "")           // remove link tags
+    .replace(/<meta[^>]*>/gi, "");          // remove meta tags
+
+  let cleanCss = css
+    .replace(/@media print[^}]*\{[^}]*\}/gi, "") // remove print styles
+    .replace(/@font-face\s*\{[^}]*\}/gi, "")     // remove font-face
+    .replace(/@keyframes[^}]*\{[^}]*(\{[^}]*\})*[^}]*\}/gi, "") // remove keyframes
+    .replace(/\s{2,}/g, " ");
+
+  const maxHtml = 8000;
+  const maxCss = 4000;
+  const trimmedHtml = cleanHtml.length > maxHtml ? cleanHtml.slice(0, maxHtml) + "\n<!-- truncated -->" : cleanHtml;
+  const trimmedCss = cleanCss.length > maxCss ? cleanCss.slice(0, maxCss) + "\n/* truncated */" : cleanCss;
 
   const userMessage = `Convert this product page HTML/CSS into a complete Shopify Liquid custom section file.
 

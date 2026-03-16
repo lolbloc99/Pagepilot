@@ -43,8 +43,9 @@ export default function Home() {
       });
 
       if (!scrapeRes.ok) {
-        const data = await scrapeRes.json();
-        throw new Error(data.error || "Failed to scrape product");
+        let errMsg = "Failed to scrape product";
+        try { const d = await scrapeRes.json(); errMsg = d.error || errMsg; } catch { errMsg = `Scrape error (${scrapeRes.status})`; }
+        throw new Error(errMsg);
       }
 
       const { product: scrapedProduct } = await scrapeRes.json();
@@ -58,8 +59,15 @@ export default function Home() {
       });
 
       if (!generateRes.ok) {
-        const data = await generateRes.json();
-        throw new Error(data.error || "Failed to generate content");
+        let errMsg = "Failed to generate content";
+        try {
+          const d = await generateRes.json();
+          errMsg = d.error || errMsg;
+          if (errMsg.includes("Rate limit") || errMsg.includes("rate_limit")) {
+            errMsg = "Limite d'API atteinte (Groq gratuit: 100k tokens/jour). Réessayez demain ou passez au plan payant Groq.";
+          }
+        } catch { errMsg = `Generate error (${generateRes.status})`; }
+        throw new Error(errMsg);
       }
 
       const result = await generateRes.json();
@@ -91,8 +99,18 @@ export default function Home() {
       clearTimeout(timeout);
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to clone page");
+        let errorMsg = "Failed to clone page";
+        try {
+          const data = await res.json();
+          errorMsg = data.error || errorMsg;
+          // Clean up Groq rate limit messages
+          if (errorMsg.includes("Rate limit") || errorMsg.includes("rate_limit")) {
+            errorMsg = "Limite d'API atteinte (Groq gratuit: 100k tokens/jour). Réessayez demain ou passez au plan payant Groq.";
+          }
+        } catch {
+          errorMsg = `Server error (${res.status})`;
+        }
+        throw new Error(errorMsg);
       }
 
       const result = await res.json();
