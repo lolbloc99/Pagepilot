@@ -50,6 +50,16 @@ export function CloneResult({ data, onReset }: CloneResultProps) {
     URL.revokeObjectURL(url);
   }
 
+  function handleDownloadCss() {
+    const blob = new Blob([data.cssCode], { type: "text/css" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "cloned-section.css";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const tabs = [
     { id: "preview" as const, label: "Preview" },
     { id: "full" as const, label: "Full Section (.liquid)" },
@@ -109,12 +119,26 @@ export function CloneResult({ data, onReset }: CloneResultProps) {
           >
             Download .liquid
           </button>
+          {data.cssCode.length > 100000 && (
+            <button
+              onClick={handleDownloadCss}
+              className="px-4 py-2.5 bg-[var(--secondary)] hover:bg-[var(--muted)] rounded-lg transition-colors text-sm"
+            >
+              Download CSS
+            </button>
+          )}
           <ShopifyPush template={fakeTemplate} productTitle="cloned-section" />
         </div>
       </div>
 
-      {/* How to use */}
+      {/* Stats + How to use */}
       <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 text-sm">
+        <div className="flex items-center gap-4 mb-3 text-xs text-[var(--muted-foreground)]">
+          <span>HTML: {(data.liquidCode.length / 1024).toFixed(0)}KB</span>
+          <span>CSS: {(data.cssCode.length / 1024).toFixed(0)}KB</span>
+          <span>Total: {(data.fullSection.length / 1024).toFixed(0)}KB</span>
+          {data.images?.length > 0 && <span>{data.images.length} images</span>}
+        </div>
         <p className="font-medium mb-2">
           Pour utiliser dans Shopify :
         </p>
@@ -134,6 +158,13 @@ export function CloneResult({ data, onReset }: CloneResultProps) {
             <strong className="text-white">Theme Editor</strong>
           </li>
         </ol>
+        {data.fullSection.length > 256000 && (
+          <p className="mt-2 text-yellow-400 text-xs">
+            ⚠️ Le fichier est volumineux ({(data.fullSection.length / 1024).toFixed(0)}KB).
+            Si Shopify rejette le fichier, copiez le CSS dans <strong>Assets &gt; cloned-section.css</strong>
+            et remplacez le bloc &lt;style&gt; par: {"{{ 'cloned-section.css' | asset_url | stylesheet_tag }}"}
+          </p>
+        )}
       </div>
 
       {/* Tabs */}
