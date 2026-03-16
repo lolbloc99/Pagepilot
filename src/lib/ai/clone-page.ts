@@ -68,7 +68,7 @@ Return a JSON object with:
 
 Return ONLY the JSON, no markdown fences.`;
 
-  const text = await chatCompletion(system, userMessage);
+  const text = await chatCompletion(system, userMessage, 32768);
   const raw = parseAIJson<Record<string, unknown>>(text);
 
   return {

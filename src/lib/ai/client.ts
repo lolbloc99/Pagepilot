@@ -69,7 +69,8 @@ interface OpenAIResponse {
 
 async function callProvider(
   config: ProviderConfig,
-  messages: ChatMessage[]
+  messages: ChatMessage[],
+  maxTokens: number = 8192
 ): Promise<string> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 120000);
@@ -83,7 +84,7 @@ async function callProvider(
     body: JSON.stringify({
       model: config.model,
       messages,
-      max_tokens: 8192,
+      max_tokens: maxTokens,
       temperature: 0.7,
     }),
     signal: controller.signal,
@@ -108,7 +109,8 @@ async function callProvider(
 
 export async function chatCompletion(
   system: string,
-  userMessage: string
+  userMessage: string,
+  maxTokens: number = 8192
 ): Promise<string> {
   const primary = getPrimaryConfig();
   const fallback = getFallbackConfig();
@@ -123,7 +125,7 @@ export async function chatCompletion(
   // Try primary provider
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      return await callProvider(primary, messages);
+      return await callProvider(primary, messages, maxTokens);
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       const status = (err as Error & { status?: number }).status;
@@ -145,7 +147,7 @@ export async function chatCompletion(
     console.log(`[AI] Trying fallback: ${fallback.name} (${fallback.model})`);
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        return await callProvider(fallback, messages);
+        return await callProvider(fallback, messages, maxTokens);
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err));
         if (attempt < maxRetries) {
@@ -179,17 +181,48 @@ export function parseAIJson<T>(text: string): T {
       try {
         return JSON.parse(objectMatch[0]) as T;
       } catch {
-        // Try fixing common JSON issues
-        const fixed = objectMatch[0]
-          .replace(/,\s*}/g, "}") // trailing commas
-          .replace(/,\s*]/g, "]") // trailing commas in arrays
-          .replace(/'/g, '"') // single quotes
-          .replace(/\n/g, "\\n") // unescaped newlines in strings
-          .replace(/\t/g, "\\t"); // unescaped tabs
+        // Try fixing common JSON issues: escape control chars inside string values
+        let fixed = objectMatch[0];
+        // Fix unescaped newlines/tabs inside JSON string values
+        fixed = fixed.replace(/"(?:[^"\\]|\\.)*"/g, (match) => {
+          return match
+            .replace(/(?<!\\)\n/g, "\\n")
+            .replace(/(?<!\\)\t/g, "\\t")
+            .replace(/(?<!\\)\r/g, "\\r");
+        });
+        // Fix trailing commas
+        fixed = fixed.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]");
 
         try {
           return JSON.parse(fixed) as T;
         } catch {
+          // Last resort: try to extract individual fields manually
+          const result: Record<string, string> = {};
+          const fieldPattern = /"(fullSection|full_section|liquidCode|liquid_code|liquid|cssCode|css_code|css|sectionSchema|section_schema|schema)"\s*:\s*"/g;
+          let match;
+          const fields: { name: string; start: number }[] = [];
+
+          while ((match = fieldPattern.exec(fixed)) !== null) {
+            fields.push({ name: match[1], start: match.index + match[0].length });
+          }
+
+          for (let i = 0; i < fields.length; i++) {
+            const start = fields[i].start;
+            const endDelimiter = i < fields.length - 1
+              ? fixed.lastIndexOf('"', fields[i + 1].start - fields[i + 1].name.length - 5)
+              : fixed.lastIndexOf('"');
+            if (endDelimiter > start) {
+              result[fields[i].name] = fixed.slice(start, endDelimiter)
+                .replace(/\\n/g, "\n")
+                .replace(/\\t/g, "\t")
+                .replace(/\\"/g, '"');
+            }
+          }
+
+          if (Object.keys(result).length > 0) {
+            return result as T;
+          }
+
           throw new Error(
             "Failed to parse AI response as JSON. Raw output: " +
               jsonStr.slice(0, 500)
