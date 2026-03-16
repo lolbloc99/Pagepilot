@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { ScrapedProduct } from "@/lib/scrapers/types";
+import { GeneratedContent } from "@/lib/ai/generate-content";
 import { ShopifyPush } from "./shopify-push";
+import { TemplatePreview } from "./template-preview";
 
 interface ResultViewProps {
   template: object;
@@ -17,8 +19,8 @@ export function ResultView({
   content,
   onReset,
 }: ResultViewProps) {
-  const [activeTab, setActiveTab] = useState<"json" | "content" | "images">(
-    "json"
+  const [activeTab, setActiveTab] = useState<"preview" | "json" | "content" | "images">(
+    "preview"
   );
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -71,6 +73,7 @@ export function ResultView({
   }
 
   const tabs = [
+    { id: "preview" as const, label: "Preview" },
     { id: "json" as const, label: "Template JSON" },
     { id: "content" as const, label: "Generated Content" },
     { id: "images" as const, label: `Images (${product.images.length})` },
@@ -128,7 +131,11 @@ export function ResultView({
       </div>
 
       {/* Content */}
-      <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl overflow-hidden">
+      {activeTab === "preview" && content && (
+        <TemplatePreview content={content as GeneratedContent} product={product} />
+      )}
+
+      <div className={`bg-[var(--card)] border border-[var(--border)] rounded-xl overflow-hidden ${activeTab === "preview" ? "hidden" : ""}`}>
         {activeTab === "json" && (
           <pre className="p-6 overflow-auto max-h-[600px] text-sm text-green-400 font-mono leading-relaxed">
             {JSON.stringify(template, null, 2)}
