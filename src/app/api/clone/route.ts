@@ -20,6 +20,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: urlCheck.error }, { status: 400 });
     }
 
+    const baseUrl = new URL(url).origin;
+
     // Fetch page with timeout
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
@@ -46,10 +48,62 @@ export async function POST(req: NextRequest) {
     const html = await pageRes.text();
     const $ = cheerio.load(html);
 
-    // Remove non-content elements
+    // Remove non-content elements (keep small inline SVGs for icons)
     $(
-      "script, noscript, iframe, nav, footer, header, [role='navigation'], [role='banner'], [role='contentinfo'], .shopify-section-header, .shopify-section-footer, svg"
+      "script, noscript, iframe, nav, footer, header, [role='navigation'], [role='banner'], [role='contentinfo'], .shopify-section-header, .shopify-section-footer"
     ).remove();
+
+    // Remove large SVGs (>2000 chars) but keep small ones (icons)
+    $("svg").each((_, el) => {
+      const svgHtml = $.html(el);
+      if (svgHtml && svgHtml.length > 2000) {
+        $(el).remove();
+      }
+    });
+
+    // Remove data-* attributes (reduce size, not needed for visual)
+    $("*").each((_, el) => {
+      const elem = $(el);
+      const attribs = (el as unknown as { attribs: Record<string, string> }).attribs || {};
+      Object.keys(attribs).forEach((attr) => {
+        if (attr.startsWith("data-") && attr !== "data-src" && attr !== "data-srcset") {
+          elem.removeAttr(attr);
+        }
+      });
+    });
+
+    // Make image src absolute
+    $("img").each((_, el) => {
+      const elem = $(el);
+      const src = elem.attr("src");
+      if (src) {
+        if (src.startsWith("//")) {
+          elem.attr("src", "https:" + src);
+        } else if (src.startsWith("/")) {
+          elem.attr("src", baseUrl + src);
+        }
+      }
+      const srcset = elem.attr("srcset");
+      if (srcset) {
+        const fixed = srcset.replace(/\/\/([^\s,]+)/g, "https://$1");
+        elem.attr("srcset", fixed);
+      }
+      // Promote data-src to src if no src
+      if (!src && elem.attr("data-src")) {
+        let dataSrc = elem.attr("data-src") || "";
+        if (dataSrc.startsWith("//")) dataSrc = "https:" + dataSrc;
+        else if (dataSrc.startsWith("/")) dataSrc = baseUrl + dataSrc;
+        elem.attr("src", dataSrc);
+      }
+    });
+
+    // Make background-image URLs absolute in inline styles
+    $("[style]").each((_, el) => {
+      const elem = $(el);
+      let style = elem.attr("style") || "";
+      style = style.replace(/url\((['"]?)\/([^)]+)\1\)/g, `url($1${baseUrl}/$2$1)`);
+      elem.attr("style", style);
+    });
 
     // Extract inline styles
     const cssBlocks: string[] = [];
@@ -58,7 +112,7 @@ export async function POST(req: NextRequest) {
       if (content) cssBlocks.push(content);
     });
 
-    // Fetch up to 2 external stylesheets with timeout
+    // Fetch external stylesheets with timeout
     const stylesheetUrls: string[] = [];
     $('link[rel="stylesheet"]').each((_, el) => {
       const href = $(el).attr("href");
@@ -95,7 +149,15 @@ export async function POST(req: NextRequest) {
     );
     cssBlocks.push(...externalCss.filter(Boolean));
 
-    // Get cleaned body content
+    // Make CSS url() references absolute
+    const combinedCss = cssBlocks
+      .join("\n")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/url\((['"]?)\/([^)]+)\1\)/g, `url($1${baseUrl}/$2$1)`)
+      .replace(/\s+/g, " ")
+      .trim();
+
+    // Get main content
     let mainContent =
       $("main").html() ||
       $('[role="main"]').html() ||
@@ -109,13 +171,7 @@ export async function POST(req: NextRequest) {
       .replace(/<!--[\s\S]*?-->/g, "")
       .trim();
 
-    const combinedCss = cssBlocks
-      .join("\n")
-      .replace(/\/\*[\s\S]*?\*\//g, "")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    // Extract images
+    // Extract images list
     const images: { src: string; alt: string }[] = [];
     $("img").each((_, el) => {
       const src = $(el).attr("src") || $(el).attr("data-src");
@@ -128,7 +184,6 @@ export async function POST(req: NextRequest) {
     });
 
     const lang = language || "Francais";
-    const baseUrl = new URL(url).origin;
     const result = await clonePage(mainContent, combinedCss, lang, baseUrl);
 
     // Build preview HTML from original scraped content (not Liquid)
