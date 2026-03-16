@@ -12,15 +12,34 @@ interface Shop {
   hasToken: boolean;
 }
 
-export default function ShopsPage() {
-  return (
-    <Suspense>
-      <ShopsContent />
-    </Suspense>
-  );
+function OAuthHandler({ onConnected, onError }: { onConnected: (name: string) => void; onError: (msg: string) => void }) {
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const connected = searchParams.get("connected");
+    const errorParam = searchParams.get("error");
+
+    if (connected) {
+      onConnected(decodeURIComponent(connected));
+      window.history.replaceState({}, "", "/shops");
+    }
+
+    if (errorParam) {
+      const messages: Record<string, string> = {
+        missing_params: "OAuth callback missing parameters",
+        missing_config: "Server missing SHOPIFY_CLIENT_ID or SHOPIFY_CLIENT_SECRET",
+        token_exchange_failed: "Failed to exchange OAuth code for token",
+        callback_failed: "OAuth callback failed",
+      };
+      onError(messages[errorParam] || "Connection failed");
+      window.history.replaceState({}, "", "/shops");
+    }
+  }, [searchParams, onConnected, onError]);
+
+  return null;
 }
 
-function ShopsContent() {
+export default function ShopsPage() {
   const [shops, setShops] = useState<Shop[]>([]);
   const [activeDomain, setActiveDomain] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -30,7 +49,6 @@ function ShopsContent() {
   const [success, setSuccess] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const searchParams = useSearchParams();
 
   const fetchShops = useCallback(async () => {
     try {
@@ -46,33 +64,19 @@ function ShopsContent() {
     }
   }, []);
 
+  const handleOAuthConnected = useCallback((name: string) => {
+    setSuccess(`${name} connected successfully!`);
+    fetchShops();
+  }, [fetchShops]);
+
+  const handleOAuthError = useCallback((msg: string) => {
+    setError(msg);
+  }, []);
+
   useEffect(() => {
     fetchShops();
-
-    // Load active shop from localStorage (just the domain reference)
     setActiveDomain(localStorage.getItem("pageforge_active_domain"));
-
-    // Handle OAuth callback
-    const connected = searchParams.get("connected");
-    const errorParam = searchParams.get("error");
-
-    if (connected) {
-      setSuccess(`${decodeURIComponent(connected)} connected successfully!`);
-      fetchShops();
-      window.history.replaceState({}, "", "/shops");
-    }
-
-    if (errorParam) {
-      const messages: Record<string, string> = {
-        missing_params: "OAuth callback missing parameters",
-        missing_config: "Server missing SHOPIFY_CLIENT_ID or SHOPIFY_CLIENT_SECRET",
-        token_exchange_failed: "Failed to exchange OAuth code for token",
-        callback_failed: "OAuth callback failed",
-      };
-      setError(messages[errorParam] || "Connection failed");
-      window.history.replaceState({}, "", "/shops");
-    }
-  }, [searchParams, fetchShops]);
+  }, [fetchShops]);
 
   async function handleConnect() {
     if (!domain) return;
@@ -126,6 +130,9 @@ function ShopsContent() {
 
   return (
     <main className="min-h-screen">
+      <Suspense>
+        <OAuthHandler onConnected={handleOAuthConnected} onError={handleOAuthError} />
+      </Suspense>
       <header className="border-b border-[var(--border)] px-6 py-4">
         <div className="mx-auto max-w-6xl flex items-center justify-between">
           <div className="flex items-center gap-3">
