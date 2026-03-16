@@ -128,10 +128,10 @@ export async function POST(req: NextRequest) {
     });
 
     const lang = language || "Francais";
-    const result = await clonePage(mainContent, combinedCss, lang);
+    const baseUrl = new URL(url).origin;
+    const result = await clonePage(mainContent, combinedCss, lang, baseUrl);
 
     // Build preview HTML from original scraped content (not Liquid)
-    const baseUrl = new URL(url).origin;
     const previewHtml = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <base href="${baseUrl}/">
