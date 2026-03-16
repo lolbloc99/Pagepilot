@@ -33,15 +33,16 @@ export async function getShopById(shopId: string): Promise<ShopDoc | null> {
 
 export async function upsertShop(shop: Omit<ShopDoc, "_id" | "updatedAt">): Promise<void> {
   const col = await collection();
+  const { addedAt, ...rest } = shop;
   await col.updateOne(
     { domain: shop.domain },
     {
       $set: {
-        ...shop,
+        ...rest,
         updatedAt: new Date(),
       },
       $setOnInsert: {
-        addedAt: shop.addedAt || new Date(),
+        addedAt: addedAt || new Date(),
       },
     },
     { upsert: true }
