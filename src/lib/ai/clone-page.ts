@@ -66,86 +66,32 @@ function cleanHtmlForShopify(html: string, baseUrl: string): string {
 }
 
 /**
- * Extract class names used in HTML to filter CSS
+ * Clean CSS: remove bloat (@font-face, @keyframes, print, comments) but keep all visual rules.
  */
-function extractUsedClasses(html: string): Set<string> {
-  const classes = new Set<string>();
-  const classRegex = /class="([^"]*)"/gi;
-  let match;
-  while ((match = classRegex.exec(html)) !== null) {
-    match[1].split(/\s+/).forEach((cls) => {
-      if (cls) classes.add(cls);
-    });
-  }
-  return classes;
-}
-
-/**
- * Filter CSS to keep only rules that match classes used in HTML.
- * Also keeps @media rules, CSS variables, and universal selectors.
- */
-function filterRelevantCss(css: string, usedClasses: Set<string>): string {
-  // Remove comments, @font-face, @keyframes, print styles
+function cleanCss(css: string): string {
+  // Remove bloat but keep all visual rules (class filtering was too aggressive)
   let cleaned = css
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/@font-face\s*\{[^}]*\}/gi, "")
-    .replace(/@keyframes[^{]*\{(?:[^{}]*\{[^}]*\})*[^}]*\}/gi, "")
-    .replace(/@media\s+print[^{]*\{(?:[^{}]*\{[^}]*\})*[^}]*\}/gi, "");
+    .replace(/\/\*[\s\S]*?\*\//g, "")                                          // comments
+    .replace(/@font-face\s*\{[^}]*\}/gi, "")                                   // font-face
+    .replace(/@keyframes[^{]*\{(?:[^{}]*\{[^}]*\})*[^}]*\}/gi, "")            // keyframes
+    .replace(/@media\s+print[^{]*\{(?:[^{}]*\{[^}]*\})*[^}]*\}/gi, "")        // print media
+    .replace(/@charset[^;]*;/gi, "")                                            // charset
+    .replace(/@import[^;]*;/gi, "")                                             // imports
+    .replace(/\s{2,}/g, " ")
+    .trim();
 
-  // Parse CSS into top-level blocks (handles nested @media correctly)
-  const blocks: string[] = [];
-  let depth = 0;
-  let current = "";
-
-  for (let i = 0; i < cleaned.length; i++) {
-    const ch = cleaned[i];
-    current += ch;
-    if (ch === "{") depth++;
-    if (ch === "}") {
-      depth--;
-      if (depth <= 0) {
-        blocks.push(current.trim());
-        current = "";
-        depth = 0;
-      }
-    }
+  // If CSS is still huge (>150k), keep it but compress aggressively
+  if (cleaned.length > 150000) {
+    // Remove all whitespace that's not inside values
+    cleaned = cleaned
+      .replace(/\s*\{\s*/g, "{")
+      .replace(/\s*\}\s*/g, "}")
+      .replace(/\s*;\s*/g, ";")
+      .replace(/\s*:\s*/g, ":")
+      .replace(/\s*,\s*/g, ",");
   }
 
-  const kept: string[] = [];
-
-  for (const block of blocks) {
-    if (!block) continue;
-
-    const selector = block.split("{")[0].trim();
-
-    // Always keep: :root, html, body, *, @media (keep entire media block)
-    if (/^(:root|html|body|\*|@media)/i.test(selector)) {
-      kept.push(block);
-      continue;
-    }
-
-    // Check if any used class appears in the selector
-    let isRelevant = false;
-    for (const cls of usedClasses) {
-      if (selector.includes("." + cls)) {
-        isRelevant = true;
-        break;
-      }
-    }
-
-    if (isRelevant) {
-      kept.push(block);
-    }
-  }
-
-  const result = kept.join("\n").replace(/\s{2,}/g, " ").trim();
-
-  // Safety: if CSS is still huge (>100k), truncate but keep it valid
-  if (result.length > 100000) {
-    return result.slice(0, 100000);
-  }
-
-  return result;
+  return cleaned;
 }
 
 export async function clonePage(
@@ -157,9 +103,8 @@ export async function clonePage(
   // Step 1: Server-side HTML cleaning (no AI needed)
   let processedHtml = cleanHtmlForShopify(html, baseUrl);
 
-  // Step 2: Extract used CSS classes and filter CSS
-  const usedClasses = extractUsedClasses(processedHtml);
-  const relevantCss = filterRelevantCss(css, usedClasses);
+  // Step 2: Clean CSS (remove bloat, keep all visual rules)
+  const relevantCss = cleanCss(css);
 
   // Step 3: AI — "find & replace" approach
   // Instead of asking AI to reproduce all HTML (which causes truncation),
