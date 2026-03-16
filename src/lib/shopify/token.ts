@@ -16,9 +16,8 @@ export async function getValidToken(domain: string): Promise<string> {
     return shop.accessToken;
   }
 
-  // Refresh token
-  const clientId = process.env.SHOPIFY_CLIENT_ID;
-  const clientSecret = process.env.SHOPIFY_CLIENT_SECRET;
+  // Refresh token using per-shop credentials from DB
+  const { clientId, clientSecret } = shop;
 
   if (!clientId || !clientSecret) {
     // Can't refresh, return existing token and hope it works

@@ -5,6 +5,8 @@ export interface ShopDoc {
   shopId: string;
   name: string;
   domain: string;
+  clientId: string;
+  clientSecret: string;
   accessToken: string;
   scopes: string;
   addedAt: Date;

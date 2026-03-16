@@ -9,6 +9,12 @@ interface ShopifyTheme {
   role: string;
 }
 
+interface ShopInfo {
+  shopId: string;
+  name: string;
+  domain: string;
+}
+
 interface ShopifyPushProps {
   template: object;
   productTitle: string;
@@ -16,13 +22,14 @@ interface ShopifyPushProps {
 
 export function ShopifyPush({ template, productTitle }: ShopifyPushProps) {
   const [open, setOpen] = useState(false);
-  const [activeDomain, setActiveDomain] = useState<string | null>(null);
-  const [shopName, setShopName] = useState("");
+  const [shops, setShops] = useState<ShopInfo[]>([]);
+  const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [themes, setThemes] = useState<ShopifyTheme[]>([]);
   const [selectedTheme, setSelectedTheme] = useState<number | null>(null);
   const [templateName, setTemplateName] = useState("");
   const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(false);
+  const [fetchingShops, setFetchingShops] = useState(false);
+  const [fetchingThemes, setFetchingThemes] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
   const [error, setError] = useState("");
 
@@ -38,9 +45,35 @@ export function ShopifyPush({ template, productTitle }: ShopifyPushProps) {
     }
   }, [productTitle]);
 
+  async function fetchShopsList() {
+    setFetchingShops(true);
+    try {
+      const res = await fetch("/api/shops");
+      if (res.ok) {
+        const data = await res.json();
+        setShops(data.shops);
+        // Pre-select the active shop from localStorage
+        const active = localStorage.getItem("pageforge_active_domain");
+        if (active && data.shops.some((s: ShopInfo) => s.domain === active)) {
+          setSelectedDomain(active);
+          fetchThemes(active);
+        } else if (data.shops.length === 1) {
+          setSelectedDomain(data.shops[0].domain);
+          fetchThemes(data.shops[0].domain);
+        }
+      }
+    } catch {
+      // ignore
+    } finally {
+      setFetchingShops(false);
+    }
+  }
+
   async function fetchThemes(domain: string) {
-    setFetching(true);
+    setFetchingThemes(true);
     setError("");
+    setThemes([]);
+    setSelectedTheme(null);
     try {
       const res = await fetch("/api/shopify/themes", {
         method: "POST",
@@ -58,12 +91,22 @@ export function ShopifyPush({ template, productTitle }: ShopifyPushProps) {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Connection failed");
     } finally {
-      setFetching(false);
+      setFetchingThemes(false);
+    }
+  }
+
+  function handleShopChange(domain: string) {
+    setSelectedDomain(domain);
+    setResult(null);
+    setError("");
+    if (domain) {
+      localStorage.setItem("pageforge_active_domain", domain);
+      fetchThemes(domain);
     }
   }
 
   async function handlePush() {
-    if (!activeDomain || !selectedTheme || !templateName) return;
+    if (!selectedDomain || !selectedTheme || !templateName) return;
     setLoading(true);
     setError("");
     setResult(null);
@@ -72,7 +115,7 @@ export function ShopifyPush({ template, productTitle }: ShopifyPushProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          domain: activeDomain,
+          domain: selectedDomain,
           themeId: selectedTheme,
           templateName,
           template,
@@ -92,25 +135,12 @@ export function ShopifyPush({ template, productTitle }: ShopifyPushProps) {
     setOpen(true);
     setResult(null);
     setError("");
-    const domain = localStorage.getItem("pageforge_active_domain");
-    setActiveDomain(domain);
-
-    if (domain) {
-      // Fetch shop info
-      try {
-        const res = await fetch("/api/shops");
-        if (res.ok) {
-          const data = await res.json();
-          const shop = data.shops.find((s: { domain: string; name: string }) => s.domain === domain);
-          if (shop) setShopName(shop.name);
-        }
-      } catch { /* ignore */ }
-
-      if (themes.length === 0) {
-        fetchThemes(domain);
-      }
-    }
+    setThemes([]);
+    setSelectedDomain(null);
+    fetchShopsList();
   }
+
+  const selectedShop = shops.find((s) => s.domain === selectedDomain);
 
   return (
     <>
@@ -134,7 +164,14 @@ export function ShopifyPush({ template, productTitle }: ShopifyPushProps) {
               </button>
             </div>
 
-            {!activeDomain && (
+            {fetchingShops && (
+              <div className="flex items-center gap-3 py-8 justify-center">
+                <div className="w-5 h-5 rounded-full border-2 border-[#96bf48] border-t-transparent animate-spin" />
+                <span className="text-sm text-[var(--muted-foreground)]">Loading stores...</span>
+              </div>
+            )}
+
+            {!fetchingShops && shops.length === 0 && (
               <div className="text-center py-6 space-y-4">
                 <div className="w-14 h-14 rounded-2xl bg-[var(--secondary)] flex items-center justify-center mx-auto">
                   <svg className="w-7 h-7 text-[var(--muted-foreground)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -153,51 +190,63 @@ export function ShopifyPush({ template, productTitle }: ShopifyPushProps) {
               </div>
             )}
 
-            {activeDomain && fetching && (
-              <div className="flex items-center gap-3 py-8 justify-center">
-                <div className="w-5 h-5 rounded-full border-2 border-[#96bf48] border-t-transparent animate-spin" />
-                <span className="text-sm text-[var(--muted-foreground)]">
-                  Connecting to {shopName || activeDomain}...
-                </span>
-              </div>
-            )}
-
-            {activeDomain && !fetching && themes.length > 0 && (
+            {!fetchingShops && shops.length > 0 && (
               <div className="space-y-4">
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-[#96bf48]/10 border border-[#96bf48]/30">
-                  <div className="w-8 h-8 rounded-lg bg-[#96bf48]/20 flex items-center justify-center">
-                    <span className="text-[#96bf48] text-xs font-bold">S</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{shopName || activeDomain}</p>
-                    <p className="text-xs text-[var(--muted-foreground)] truncate">{activeDomain}</p>
-                  </div>
-                  <Link href="/shops" className="text-xs text-[var(--muted-foreground)] hover:text-white transition-colors">Change</Link>
-                </div>
-
+                {/* Shop selector */}
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">Theme</label>
+                  <label className="block text-sm font-medium mb-1.5">Store</label>
                   <select
-                    value={selectedTheme || ""}
-                    onChange={(e) => setSelectedTheme(Number(e.target.value))}
+                    value={selectedDomain || ""}
+                    onChange={(e) => handleShopChange(e.target.value)}
                     className="w-full px-3 py-2.5 bg-[var(--secondary)] border border-[var(--border)] rounded-lg text-sm"
                   >
-                    {themes.map((theme) => (
-                      <option key={theme.id} value={theme.id}>
-                        {theme.name} {theme.role === "main" ? "(Live)" : theme.role === "unpublished" ? "(Draft)" : ""}
+                    <option value="">Select a store...</option>
+                    {shops.map((shop) => (
+                      <option key={shop.domain} value={shop.domain}>
+                        {shop.name} ({shop.domain})
                       </option>
                     ))}
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">Template name</label>
-                  <div className="flex items-center gap-0">
-                    <span className="px-3 py-2.5 bg-[var(--muted)] border border-r-0 border-[var(--border)] rounded-l-lg text-sm text-[var(--muted-foreground)]">product.</span>
-                    <input type="text" value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="my-product" className="flex-1 px-3 py-2.5 bg-[var(--secondary)] border border-[var(--border)] text-sm" />
-                    <span className="px-3 py-2.5 bg-[var(--muted)] border border-l-0 border-[var(--border)] rounded-r-lg text-sm text-[var(--muted-foreground)]">.json</span>
+                {/* Loading themes */}
+                {selectedDomain && fetchingThemes && (
+                  <div className="flex items-center gap-3 py-4 justify-center">
+                    <div className="w-4 h-4 rounded-full border-2 border-[#96bf48] border-t-transparent animate-spin" />
+                    <span className="text-sm text-[var(--muted-foreground)]">
+                      Loading themes from {selectedShop?.name || selectedDomain}...
+                    </span>
                   </div>
-                </div>
+                )}
+
+                {/* Theme selector + template name */}
+                {selectedDomain && !fetchingThemes && themes.length > 0 && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium mb-1.5">Theme</label>
+                      <select
+                        value={selectedTheme || ""}
+                        onChange={(e) => setSelectedTheme(Number(e.target.value))}
+                        className="w-full px-3 py-2.5 bg-[var(--secondary)] border border-[var(--border)] rounded-lg text-sm"
+                      >
+                        {themes.map((theme) => (
+                          <option key={theme.id} value={theme.id}>
+                            {theme.name} {theme.role === "main" ? "(Live)" : theme.role === "unpublished" ? "(Draft)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1.5">Template name</label>
+                      <div className="flex items-center gap-0">
+                        <span className="px-3 py-2.5 bg-[var(--muted)] border border-r-0 border-[var(--border)] rounded-l-lg text-sm text-[var(--muted-foreground)]">product.</span>
+                        <input type="text" value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="my-product" className="flex-1 px-3 py-2.5 bg-[var(--secondary)] border border-[var(--border)] text-sm" />
+                        <span className="px-3 py-2.5 bg-[var(--muted)] border border-l-0 border-[var(--border)] rounded-r-lg text-sm text-[var(--muted-foreground)]">.json</span>
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {result && result.success && (
                   <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30">
@@ -214,19 +263,14 @@ export function ShopifyPush({ template, productTitle }: ShopifyPushProps) {
 
                 <div className="flex gap-3 pt-2">
                   <button onClick={() => setOpen(false)} className="flex-1 px-4 py-2.5 bg-[var(--secondary)] hover:bg-[var(--muted)] rounded-lg text-sm transition-colors">Cancel</button>
-                  <button onClick={handlePush} disabled={loading || !templateName || !selectedTheme} className="flex-1 px-4 py-2.5 bg-[#96bf48] hover:bg-[#7fa93d] disabled:opacity-50 rounded-lg text-sm font-medium text-white transition-colors">
+                  <button
+                    onClick={handlePush}
+                    disabled={loading || !selectedDomain || !templateName || !selectedTheme || fetchingThemes}
+                    className="flex-1 px-4 py-2.5 bg-[#96bf48] hover:bg-[#7fa93d] disabled:opacity-50 rounded-lg text-sm font-medium text-white transition-colors"
+                  >
                     {loading ? "Pushing..." : result?.success ? "Push Again" : "Push Template"}
                   </button>
                 </div>
-              </div>
-            )}
-
-            {activeDomain && !fetching && themes.length === 0 && error && (
-              <div className="space-y-4">
-                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30">
-                  <p className="text-red-400 text-sm">{error}</p>
-                </div>
-                <button onClick={() => fetchThemes(activeDomain)} className="w-full px-4 py-2.5 bg-[var(--primary)] hover:bg-[var(--primary)]/90 rounded-lg text-sm font-medium transition-colors">Retry</button>
               </div>
             )}
           </div>

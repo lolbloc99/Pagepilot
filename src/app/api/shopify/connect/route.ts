@@ -4,19 +4,12 @@ import crypto from "crypto";
 
 export async function POST(req: NextRequest) {
   try {
-    const { shop } = await req.json();
+    const { shop, clientId, clientSecret } = await req.json();
 
-    if (!shop) {
-      return NextResponse.json({ error: "shop domain is required" }, { status: 400 });
-    }
-
-    const clientId = process.env.SHOPIFY_CLIENT_ID;
-    const clientSecret = process.env.SHOPIFY_CLIENT_SECRET;
-
-    if (!clientId || !clientSecret) {
+    if (!shop || !clientId || !clientSecret) {
       return NextResponse.json(
-        { error: "SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET not configured" },
-        { status: 500 }
+        { error: "shop domain, clientId, and clientSecret are required" },
+        { status: 400 }
       );
     }
 
@@ -70,11 +63,13 @@ export async function POST(req: NextRequest) {
       // Use domain as fallback
     }
 
-    // Save to MongoDB (token + expiry for auto-refresh)
+    // Save to MongoDB (credentials + token for auto-refresh)
     await upsertShop({
       shopId: crypto.randomUUID(),
       name: shopName,
       domain: cleanShop,
+      clientId,
+      clientSecret,
       accessToken,
       scopes,
       addedAt: new Date(),

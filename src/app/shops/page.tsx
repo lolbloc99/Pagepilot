@@ -16,6 +16,8 @@ export default function ShopsPage() {
   const [activeDomain, setActiveDomain] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [domain, setDomain] = useState("");
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -42,7 +44,7 @@ export default function ShopsPage() {
   }, [fetchShops]);
 
   async function handleConnect() {
-    if (!domain) return;
+    if (!domain || !clientId || !clientSecret) return;
     setConnecting(true);
     setError("");
 
@@ -51,11 +53,14 @@ export default function ShopsPage() {
         .replace(/^https?:\/\//, "")
         .replace(/\/$/, "");
 
-      // Direct connect via client_credentials (no OAuth redirect needed)
       const res = await fetch("/api/shopify/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shop: cleanDomain }),
+        body: JSON.stringify({
+          shop: cleanDomain,
+          clientId: clientId.trim(),
+          clientSecret: clientSecret.trim(),
+        }),
       });
 
       const data = await res.json();
@@ -66,6 +71,8 @@ export default function ShopsPage() {
       setActiveDomain(data.domain);
       setShowAdd(false);
       setDomain("");
+      setClientId("");
+      setClientSecret("");
       await fetchShops();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Connection failed");
@@ -154,15 +161,37 @@ export default function ShopsPage() {
                   onChange={(e) => setDomain(e.target.value)}
                   placeholder="my-store.myshopify.com"
                   className="w-full px-4 py-2.5 bg-[var(--secondary)] border border-[var(--border)] rounded-lg text-sm placeholder:text-[var(--muted-foreground)]"
-                  onKeyDown={(e) => e.key === "Enter" && handleConnect()}
                 />
               </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">Client ID</label>
+                  <input
+                    type="text"
+                    value={clientId}
+                    onChange={(e) => setClientId(e.target.value)}
+                    placeholder="298bd43c..."
+                    className="w-full px-4 py-2.5 bg-[var(--secondary)] border border-[var(--border)] rounded-lg text-sm font-mono placeholder:text-[var(--muted-foreground)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">Client Secret</label>
+                  <input
+                    type="password"
+                    value={clientSecret}
+                    onChange={(e) => setClientSecret(e.target.value)}
+                    placeholder="shpss_..."
+                    className="w-full px-4 py-2.5 bg-[var(--secondary)] border border-[var(--border)] rounded-lg text-sm font-mono placeholder:text-[var(--muted-foreground)]"
+                  />
+                </div>
+              </div>
               <div className="p-4 rounded-lg bg-[var(--secondary)] border border-[var(--border)]">
-                <p className="text-sm font-medium mb-2">How it works:</p>
-                <ol className="text-xs text-[var(--muted-foreground)] space-y-1 list-decimal list-inside">
-                  <li>Make sure the PagePilot app is installed on your store</li>
-                  <li>Enter your store domain above (e.g. my-store.myshopify.com)</li>
-                  <li>Click &quot;Connect Store&quot; — we&apos;ll authenticate automatically</li>
+                <p className="text-sm font-medium mb-2">How to get your credentials:</p>
+                <ol className="text-xs text-[var(--muted-foreground)] space-y-1.5 list-decimal list-inside">
+                  <li>Go to <strong className="text-[var(--foreground)]">Settings &gt; Apps and sales channels &gt; Develop apps</strong> on your Shopify admin</li>
+                  <li>Create or select your app, then go to <strong className="text-[var(--foreground)]">API credentials</strong></li>
+                  <li>Copy the <strong className="text-[var(--foreground)]">Client ID</strong> and <strong className="text-[var(--foreground)]">Client secret</strong></li>
+                  <li>Make sure the app is <strong className="text-[var(--foreground)]">installed</strong> on the store with <strong className="text-[var(--foreground)]">write_themes</strong> scope</li>
                 </ol>
               </div>
               {error && (
@@ -172,20 +201,20 @@ export default function ShopsPage() {
               )}
               <div className="flex gap-3 pt-2">
                 <button
-                  onClick={() => { setShowAdd(false); setError(""); setDomain(""); }}
+                  onClick={() => { setShowAdd(false); setError(""); setDomain(""); setClientId(""); setClientSecret(""); }}
                   className="px-5 py-2.5 bg-[var(--secondary)] hover:bg-[var(--muted)] rounded-lg text-sm transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConnect}
-                  disabled={connecting || !domain}
+                  disabled={connecting || !domain || !clientId || !clientSecret}
                   className="px-5 py-2.5 bg-[#96bf48] hover:bg-[#7fa93d] disabled:opacity-50 rounded-lg text-sm font-medium text-white transition-colors"
                 >
                   {connecting ? (
                     <span className="flex items-center gap-2">
                       <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                      Redirecting to Shopify...
+                      Connecting...
                     </span>
                   ) : (
                     "Connect Store"
