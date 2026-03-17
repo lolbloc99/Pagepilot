@@ -15,11 +15,16 @@ export async function POST(req: NextRequest) {
 
     const accessToken = await getValidToken(domain);
 
-    const safeName = templateName
+    let safeName = templateName
       .toLowerCase()
       .replace(/[^a-z0-9-_.]/g, "-")
       .replace(/-+/g, "-")
       .replace(/^-|-$/g, "");
+
+    // Fallback if sanitization removed all characters
+    if (!safeName) {
+      safeName = "product-page";
+    }
 
     const key = safeName.endsWith(".json")
       ? `product.${safeName}`

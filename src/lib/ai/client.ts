@@ -260,26 +260,32 @@ export function parseAIJson<T>(text: string): T {
           return JSON.parse(fixed) as T;
         } catch {
           // Last resort: try to extract individual fields manually
+          const MAX_FIELD_LENGTH = 100000;
           const result: Record<string, string> = {};
           const fieldPattern = /"(fullSection|full_section|liquidCode|liquid_code|liquid|cssCode|css_code|css|sectionSchema|section_schema|schema)"\s*:\s*"/g;
           let match;
           const fields: { name: string; start: number }[] = [];
 
-          while ((match = fieldPattern.exec(fixed)) !== null) {
-            fields.push({ name: match[1], start: match.index + match[0].length });
-          }
-
-          for (let i = 0; i < fields.length; i++) {
-            const start = fields[i].start;
-            const endDelimiter = i < fields.length - 1
-              ? fixed.lastIndexOf('"', fields[i + 1].start - fields[i + 1].name.length - 5)
-              : fixed.lastIndexOf('"');
-            if (endDelimiter > start) {
-              result[fields[i].name] = fixed.slice(start, endDelimiter)
-                .replace(/\\n/g, "\n")
-                .replace(/\\t/g, "\t")
-                .replace(/\\"/g, '"');
+          try {
+            while ((match = fieldPattern.exec(fixed)) !== null) {
+              fields.push({ name: match[1], start: match.index + match[0].length });
             }
+
+            for (let i = 0; i < fields.length; i++) {
+              const start = fields[i].start;
+              const endDelimiter = i < fields.length - 1
+                ? fixed.lastIndexOf('"', fields[i + 1].start - fields[i + 1].name.length - 5)
+                : fixed.lastIndexOf('"');
+              if (endDelimiter > start) {
+                const extracted = fixed.slice(start, Math.min(endDelimiter, start + MAX_FIELD_LENGTH));
+                result[fields[i].name] = extracted
+                  .replace(/\\n/g, "\n")
+                  .replace(/\\t/g, "\t")
+                  .replace(/\\"/g, '"');
+              }
+            }
+          } catch (regexErr) {
+            console.error("[AI] Regex field extraction failed:", regexErr);
           }
 
           if (Object.keys(result).length > 0) {

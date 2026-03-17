@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { upsertShop } from "@/lib/db/shops";
+import { rateLimit } from "@/lib/utils/security";
 import crypto from "crypto";
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get("x-forwarded-for") || "anonymous";
+    const limited = rateLimit(ip, 5, 60000);
+    if (limited) return limited;
+
     const { shop, clientId, clientSecret } = await req.json();
 
     if (!shop || !clientId || !clientSecret) {

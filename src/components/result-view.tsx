@@ -174,14 +174,36 @@ export function ResultView({
   );
 }
 
-// Basic HTML sanitizer — strips script tags, event handlers, and dangerous attributes
+// HTML sanitizer — strips dangerous elements and all event handlers
 function sanitizeHtml(html: string): string {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
-    .replace(/\son\w+="[^"]*"/gi, "")
-    .replace(/\son\w+='[^']*'/gi, "")
-    .replace(/javascript:/gi, "");
+  // Remove dangerous elements entirely (including self-closing and content)
+  const dangerousElements = [
+    "script", "iframe", "object", "embed", "form", "base",
+    "meta", "link", "applet", "math", "xml",
+  ];
+  let cleaned = html;
+  for (const tag of dangerousElements) {
+    // Remove opening + content + closing tags
+    cleaned = cleaned.replace(new RegExp(`<${tag}[\\s\\S]*?<\\/${tag}>`, "gi"), "");
+    // Remove self-closing or unclosed tags
+    cleaned = cleaned.replace(new RegExp(`<${tag}[\\s>][^>]*?\\/?>`, "gi"), "");
+  }
+
+  // Remove SVG elements that could contain scripts
+  cleaned = cleaned.replace(/<svg[\s\S]*?<\/svg>/gi, "");
+
+  // Remove ALL on* event handlers (onload, onerror, onmouseover, etc.)
+  // Handles double-quoted, single-quoted, unquoted, and backtick-quoted values
+  cleaned = cleaned.replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|`[^`]*`|[^\s>]*)/gi, "");
+
+  // Remove javascript:, vbscript:, data: URLs in attributes
+  cleaned = cleaned.replace(/(?:javascript|vbscript|data)\s*:/gi, "");
+
+  // Remove style expressions (IE-specific but still a vector)
+  cleaned = cleaned.replace(/expression\s*\(/gi, "");
+  cleaned = cleaned.replace(/url\s*\(\s*['"]?\s*(?:javascript|vbscript|data)\s*:/gi, "");
+
+  return cleaned;
 }
 
 function ContentPreview({ content }: { content: Record<string, unknown> }) {

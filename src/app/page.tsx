@@ -60,7 +60,7 @@ export default function Home() {
       const generateRes = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ product: scrapedProduct, language, tone }),
+        body: JSON.stringify({ product: scrapedProduct, language, tone, stream: true }),
         signal: controller.signal,
       });
 
@@ -81,7 +81,40 @@ export default function Home() {
         throw new Error(errMsg);
       }
 
-      const result = await generateRes.json();
+      // Read SSE stream
+      const reader = generateRes.body?.getReader();
+      if (!reader) throw new Error("No response stream");
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let result: { content: object; template: Record<string, unknown>; product: ScrapedProduct } | null = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const dataLine = line.replace(/^data: /, "").trim();
+          if (!dataLine) continue;
+          try {
+            const event = JSON.parse(dataLine);
+            if (event.status === "error") {
+              throw new Error(event.error || "Generation failed");
+            }
+            if (event.status === "done" && event.result) {
+              result = event.result;
+            }
+          } catch (e) {
+            if (e instanceof Error && e.message !== "Generation failed") continue;
+            throw e;
+          }
+        }
+      }
+
+      if (!result) throw new Error("No result received from generation");
       setTemplate(result.template);
       setGeneratedContent(result.content);
       setStep("done");

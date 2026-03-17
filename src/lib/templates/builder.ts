@@ -5,6 +5,16 @@ function blockId(prefix: string): string {
   return `${prefix}_${uuid().slice(0, 6)}`;
 }
 
+/** Escape HTML special characters to prevent XSS in template output */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export function buildShopifyTemplate(content: GeneratedContent): object {
   const trustpilotId = blockId("trustpilot_stars");
   const textId = blockId("text");
@@ -469,7 +479,7 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
                 icon_heading_size: "h3",
                 icon_text_alignment: "left",
                 title: content.customColumnFeatures[i]?.title || "",
-                text: `<p>${content.customColumnFeatures[i]?.text || ""}</p>`,
+                text: `<p>${escapeHtml(content.customColumnFeatures[i]?.text || "")}</p>`,
                 margin_top: i === 0 ? 20 : 12,
                 margin_bottom: i === 1 ? 30 : i === 0 ? 20 : 0,
               },
@@ -577,7 +587,7 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
             {
               type: "row",
               settings: {
-                benefit: `<strong>${content.comparisonTable.benefits[i] || "Benefit"}</strong>`,
+                benefit: `<strong>${escapeHtml(content.comparisonTable.benefits[i] || "Benefit")}</strong>`,
                 us: true,
                 others: false,
                 others_2: false,
@@ -665,8 +675,8 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
                 star_symbol_color: "#fff",
                 stars_rating: 5,
                 title: content.reviews[i]?.title || "Great product!",
-                text: `<p>${content.reviews[i]?.text || ""}</p>`,
-                author: `<em><strong>${content.reviews[i]?.author || "Customer"}</strong></em>`,
+                text: `<p>${escapeHtml(content.reviews[i]?.text || "")}</p>`,
+                author: `<em><strong>${escapeHtml(content.reviews[i]?.author || "Customer")}</strong></em>`,
               },
             },
           ])
