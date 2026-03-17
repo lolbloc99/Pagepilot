@@ -45,9 +45,11 @@ export async function getValidToken(domain: string): Promise<string> {
   const tokenData = await tokenRes.json();
   const newToken = tokenData.access_token;
 
-  // Update in DB
+  // Update in DB — exclude _id and updatedAt from MongoDB doc
+  const { _id, updatedAt, ...shopData } = shop;
+  void _id; void updatedAt;
   await upsertShop({
-    ...shop,
+    ...shopData,
     accessToken: newToken,
   });
 
