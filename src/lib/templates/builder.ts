@@ -28,25 +28,44 @@ function escapeHtml(str: string): string {
 export function buildShopifyTemplate(content: GeneratedContent): object {
   resetIds();
 
-  // ── Main Product Section ──────────────────────────────────────────
-  // Matches EXACTLY the Shrine Pro product.json structure:
-  // title → rating_stars → price → variant_picker → quantity_selector →
-  // buy_buttons → shipping_checkpoints → sticky_atc → description → reviews → collapsible_tab
+  // ═══════════════════════════════════════════════════════════════════
+  // MAIN PRODUCT SECTION
+  // Order: trustpilot_stars → title → text → icon_with_text →
+  //        variant_picker → quantity_selector(disabled) → buy_buttons →
+  //        payment_badges → description → collapsible_tabs
+  // ═══════════════════════════════════════════════════════════════════
 
+  const trustpilotStarsId = blockId("trustpilot_stars");
   const titleBlockId = blockId("title");
-  const ratingStarsId = blockId("rating_stars");
-  const priceId = blockId("price");
+  const textBlockId = blockId("text");
+  const iconWithTextId = blockId("icon_with_text");
   const variantPickerId = blockId("variant_picker");
   const quantitySelectorId = blockId("quantity_selector");
   const buyButtonsId = blockId("buy_buttons");
-  const shippingCheckpointsId = blockId("shipping_checkpoints");
-  const stickyAtcId = blockId("sticky_atc");
+  const paymentBadgesId = blockId("payment_badges");
   const descriptionId = blockId("description");
-  const reviewsBlockId = blockId("reviews");
 
   const collapsibleTabIds = content.collapsibleTabs.map(() => blockId("collapsible_tab"));
 
+  // Get icon texts for the text block
+  const iconTexts = content.iconTexts || [];
+
   const mainProductBlocks: Record<string, object> = {
+    [trustpilotStarsId]: {
+      type: "trustpilot_stars",
+      settings: {
+        rating: 5,
+        star_color: "#00b67a",
+        bg_star_color: "#c8c8c8",
+        star_symbol_color: "#ffffff",
+        label: `(${content.reviewCount} Reviews)`,
+        size: 16,
+        alignment: "center",
+        scroll_id: "",
+        margin_top: 15,
+        margin_bottom: 15,
+      },
+    },
     [titleBlockId]: {
       type: "title",
       settings: {
@@ -57,77 +76,133 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
         margin_bottom: 0,
       },
     },
-    [ratingStarsId]: {
-      type: "rating_stars",
+    [textBlockId]: {
+      type: "text",
       settings: {
-        rating: 4.4,
-        star_color: "#ffcc00",
-        bg_stars_style: "full",
-        bg_star_color: "#ececec",
-        label: `(${content.reviewCount} Reviews)`,
-        size: 16,
-        alignment: "flex-start",
-        scroll_id: "",
-        margin_top: 0,
-        margin_bottom: 9,
+        mobile_text_size: 14,
+        desktop_text_size: 16,
+        alignment: "center",
+        text_color: "#121212",
+        text_1: iconTexts[0] || "Text with icon",
+        text_2: iconTexts[1] || "",
+        text_3: iconTexts[2] || "",
+        icon_scale: 120,
+        icon_color: "#121212",
+        icon_1: "",
+        filled_icon_1: false,
+        icon_2: "check_circle",
+        filled_icon_2: false,
+        icon_3: "check_circle",
+        filled_icon_3: false,
+        width: "100%",
+        direction: "horizontal",
+        column_gap: 3,
+        enable_bg: false,
+        bg_color: "#f3f3f3",
+        corner_radius: 40,
+        padding: 3,
+        border_size: 0,
+        border_color: "#b7b7b7",
+        margin_top: 6,
+        margin_bottom: 0,
       },
     },
-    [priceId]: {
-      type: "price",
+    [iconWithTextId]: {
+      type: "icon_with_text",
       settings: {
-        layout: "price_first",
-        price_color: "accent-1",
-        compare_price_color: "text",
-        margin_top: 9,
-        margin_bottom: 15,
+        layout: "horizontal",
+        icon_color: "accent-1",
+        desktop_icon_size: 48,
+        desktop_spacing: 12,
+        desktop_text_size: 18,
+        mobile_icon_size: 40,
+        mobile_spacing: 10,
+        mobile_text_size: 14,
+        icon_1: content.iconFeatures[0]?.icon || "favorite",
+        icon_1_fill: false,
+        heading_1: content.iconFeatures[0]?.heading || "Heading",
+        icon_2: content.iconFeatures[1]?.icon || "undo",
+        icon_2_fill: false,
+        heading_2: content.iconFeatures[1]?.heading || "Heading",
+        icon_3: content.iconFeatures[2]?.icon || "local_shipping",
+        icon_3_fill: false,
+        heading_3: content.iconFeatures[2]?.heading || "Heading",
+        margin_top: 24,
+        margin_bottom: 24,
       },
     },
     [variantPickerId]: {
       type: "variant_picker",
       settings: {
-        picker_types: "pills, dropdown, dropdown",
+        picker_types: "quantity breaks",
         custom_labels: "[name] - [selected]",
+        skip_unavailable: false,
         swatches_size: "medium",
         swatches_custom_colors: "disabled",
         swatches_custom_colors_list: "#000000, #6D388B, #0000FF, #FFCC00",
-        full_width_dropdowns: false,
-        breaks_style: "normal",
-        breaks_headline: "BUNDLE & SAVE",
+        full_width_dropdowns: true,
+        breaks_style: "vertical",
+        breaks_headline: "",
+        breaks_display_selected_indicator: true,
+        breaks_border_radius: 10,
+        breaks_border_width: 2,
         breaks_color_scheme: "accent-1",
-        breaks_badges: "[empty], Most popular, [empty]",
+        breaks_badges: "Stock Faible, \u00c9puis\u00e9,\u00c9puis\u00e9",
+        breaks_badge_style: "1",
+        breaks_badge_color: "accent-1",
         breaks_displayed_images: "variant_images",
         breaks_custom_images: "",
         breaks_image_width: 70,
         breaks_space_images: true,
+        breaks_vertical_images_position: "top",
+        breaks_vertical_prices_layout: "vertical",
         breaks_labels: "[name], [name], [name]",
-        breaks_benefits: "[empty], Free Shipping, Free Shipping",
-        breaks_captions: "Variant 1 caption, Variant 2 caption, Variant 3 caption",
+        breaks_benefits: "",
+        breaks_benefit_position: "top",
+        breaks_benefit_style: "outlined",
+        breaks_benefit_color: "accent-1",
+        breaks_captions: "",
         breaks_price_texts: "[price], [price], [price]",
         breaks_compare_price_texts: "[compare_price], [compare_price], [compare_price]",
-        margin_top: 15,
-        margin_bottom: 15,
+        margin_top: 6,
+        margin_bottom: 0,
       },
     },
     [quantitySelectorId]: {
       type: "quantity_selector",
+      disabled: true,
       settings: {
         full_width_classic: false,
+        atc_append: "none",
+        atc_append_heights: "stretch-quantity",
         enable_quantity_discounts: false,
         style: "normal",
         headline: "BUNDLE & SAVE",
         preselected: "option_1",
+        display_selected_indicator: true,
+        border_radius: 10,
+        border_width: 2,
         color_scheme: "accent-1",
         enable_variant_selectors: true,
         enable_variant_selectors_on_quantity_of_1: false,
         update_prices: false,
+        skip_unavailable: false,
+        full_width_pickers: false,
         hide_pickers_overlay: true,
         pickers_label: "",
         image_width: 70,
         space_images: true,
+        vertical_images_position: "top",
+        vertical_prices_layout: "vertical",
         option_1_quantity: 1,
         option_1_badge: "",
+        option_1_badge_style: "1",
+        option_1_badge_color: "accent-1",
         option_1_label: "Buy [quantity]",
         option_1_benefit: "",
+        option_1_benefit_position: "top",
+        option_1_benefit_style: "outlined",
+        option_1_benefit_color: "accent-1",
         option_1_caption: "You save [amount_saved]",
         option_1_percentage_off_text: "0",
         option_1_fixed_amount_off: "0",
@@ -136,8 +211,13 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
         option_1_compare_price_text: "[compare_price]",
         option_2_quantity: 2,
         option_2_badge: "",
+        option_2_badge_style: "1",
+        option_2_badge_color: "accent-1",
         option_2_label: "Buy [quantity]",
         option_2_benefit: "",
+        option_2_benefit_position: "top",
+        option_2_benefit_style: "outlined",
+        option_2_benefit_color: "accent-1",
         option_2_caption: "You save [amount_saved]",
         option_2_percentage_off_text: "0",
         option_2_fixed_amount_off: "0",
@@ -146,8 +226,13 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
         option_2_compare_price_text: "[compare_price]",
         option_3_quantity: 3,
         option_3_badge: "",
+        option_3_badge_style: "1",
+        option_3_badge_color: "accent-1",
         option_3_label: "Buy [quantity]",
         option_3_benefit: "",
+        option_3_benefit_position: "top",
+        option_3_benefit_style: "outlined",
+        option_3_benefit_color: "accent-1",
         option_3_caption: "You save [amount_saved]",
         option_3_percentage_off_text: "0",
         option_3_fixed_amount_off: "0",
@@ -156,8 +241,13 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
         option_3_compare_price_text: "[compare_price]",
         option_4_quantity: 4,
         option_4_badge: "",
+        option_4_badge_style: "1",
+        option_4_badge_color: "accent-1",
         option_4_label: "Buy [quantity]",
         option_4_benefit: "",
+        option_4_benefit_position: "top",
+        option_4_benefit_style: "outlined",
+        option_4_benefit_color: "accent-1",
         option_4_caption: "You save [amount_saved]",
         option_4_percentage_off_text: "0",
         option_4_fixed_amount_off: "0",
@@ -172,131 +262,32 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
       type: "buy_buttons",
       settings: {
         show_dynamic_checkout: false,
-        skip_cart: false,
+        skip_cart: true,
         uppercase_text: true,
         icon_scale: 120,
         icon_spacing: 10,
-        display_price: false,
+        display_price: true,
         enable_custom_color: false,
         custom_color: "#53af01",
         enable_secondary_btn: false,
         secondary_btn_label: "Buy It Now",
         secondary_btn_enable_custom_color: false,
         secondary_btn_custom_color: "#dd1d1d",
-        margin_top: 24,
-        margin_bottom: 24,
+        margin_top: 15,
+        margin_bottom: 0,
       },
     },
-    [shippingCheckpointsId]: {
-      type: "shipping_checkpoints",
+    [paymentBadgesId]: {
+      type: "payment_badges",
       settings: {
-        icon_1: "add_shopping_cart",
-        filled_icon_1: false,
-        top_text_1: "<strong>[start_date]</strong>",
-        bottom_text_1: "Ordered",
-        min_days_1: 0,
-        max_days_1: 0,
-        icon_2: "local_shipping",
-        filled_icon_2: false,
-        top_text_2: "<strong>[start_date] - [end_date]</strong>",
-        bottom_text_2: "Order Ready",
-        min_days_2: 1,
-        max_days_2: 2,
-        icon_3: "redeem",
-        filled_icon_3: false,
-        top_text_3: "<strong>[start_date] - [end_date]</strong>",
-        bottom_text_3: "Delivered",
-        min_days_3: 10,
-        max_days_3: 12,
-        icon_4: "",
-        filled_icon_4: false,
-        top_text_4: "",
-        bottom_text_4: "",
-        date_format: "mm_dd",
-        days_labels: "Mon, Tue, Wed, Thu, Fri, Sat, Sun",
-        months_labels: "Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec",
-        color_scheme: "inverse",
-        margin_top: 24,
-        margin_bottom: 24,
-      },
-    },
-    [stickyAtcId]: {
-      type: "sticky_atc",
-      settings: {
-        function: "add_to_cart",
-        display_when: "after_scroll",
-        button_label: "Add to cart",
-        enable_custom_btn_color: false,
-        custom_btn_color: "#dd1d1d",
-        color_scheme: "background-1",
-        star_color: "#ffcc00",
-        stars_label: `(${content.reviewCount} Reviews)`,
-        picker_type: "combined",
-        desktop_show_image: true,
-        desktop_show_title: true,
-        desktop_rating_stars: false,
-        desktop_show_price: true,
-        desktop_show_sale_badge: true,
-        desktop_variant_picker: true,
-        desktop_full_button_width: false,
-        desktop_show_price_in_button: false,
-        desktop_transparent_bg: false,
-        mobile_show_image: false,
-        mobile_show_title: true,
-        mobile_rating_stars: false,
-        mobile_show_price: true,
-        mobile_show_sale_badge: false,
-        mobile_variant_picker: false,
-        mobile_full_button_width: false,
-        mobile_show_price_in_button: false,
-        mobile_transparent_bg: false,
+        enabled_payment_types: "apple_pay,google_pay,visa,master",
+        margin_top: 0,
+        margin_bottom: 6,
       },
     },
     [descriptionId]: {
       type: "description",
       settings: {
-        margin_top: 24,
-        margin_bottom: 24,
-      },
-    },
-    [reviewsBlockId]: {
-      type: "reviews",
-      settings: {
-        color_scheme: "background-1",
-        show_custom_bg: false,
-        custom_bg_color: "#f2f2f2",
-        corner_radius: 12,
-        border_width: 0,
-        border_color: "#b7b7b7",
-        avatar_alignment: "top",
-        avatar_corner_radius: 40,
-        star_color: "#ffcc00",
-        stars_translate: 0,
-        checkmark_color: "#6d388b",
-        checkmark_icon_color: "#ffffff",
-        slider_type: "slide",
-        autoplay: false,
-        autoplay_speed: 5,
-        display_arrows: false,
-        display_dots: true,
-        author_1: content.reviews[0]
-          ? `<em>${escapeHtml(content.reviews[0].author)}</em> [stars]`
-          : "<em>Author</em> [stars]",
-        text_1: content.reviews[0]
-          ? richtext(escapeHtml(content.reviews[0].text))
-          : "<p>Share positive thoughts and feedback from your customer.</p>",
-        author_2: content.reviews[1]
-          ? `<em>${escapeHtml(content.reviews[1].author)}</em> [stars]`
-          : "<em>Author</em> [stars]",
-        text_2: content.reviews[1]
-          ? richtext(escapeHtml(content.reviews[1].text))
-          : "<p>Share positive thoughts and feedback from your customer.</p>",
-        author_3: content.reviews[2]
-          ? `<em>${escapeHtml(content.reviews[2].author)}</em> [stars]`
-          : "<em>Author</em> [stars]",
-        text_3: content.reviews[2]
-          ? richtext(escapeHtml(content.reviews[2].text))
-          : "<p>Share positive thoughts and feedback from your customer.</p>",
         margin_top: 24,
         margin_bottom: 24,
       },
@@ -307,14 +298,14 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
         {
           type: "collapsible_tab",
           settings: {
-            heading: content.collapsibleTabs[i].heading,
-            heading_size: "medium",
-            icon: content.collapsibleTabs[i].icon || "check_box",
+            heading: content.collapsibleTabs[i]?.heading || "Collapsible row",
+            heading_size: "small",
+            icon: "",
             filled_icon: false,
             collapse_icon: "carret",
             display_top_border: true,
             open: false,
-            content: richtext(content.collapsibleTabs[i].content),
+            content: richtext(content.collapsibleTabs[i]?.content || ""),
             page: "",
             margin_top: 24,
             margin_bottom: 0,
@@ -325,69 +316,117 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
   };
 
   const mainProductBlockOrder = [
+    trustpilotStarsId,
     titleBlockId,
-    ratingStarsId,
-    priceId,
+    textBlockId,
+    iconWithTextId,
     variantPickerId,
     quantitySelectorId,
     buyButtonsId,
-    shippingCheckpointsId,
-    stickyAtcId,
+    paymentBadgesId,
     descriptionId,
-    reviewsBlockId,
     ...collapsibleTabIds,
   ];
 
-  // ── Custom Columns Section ──────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════
+  // IMAGE WITH TEXT 1
+  // ═══════════════════════════════════════════════════════════════════
+  const iwt1Id = blockId("image_with_text");
+  const iwt1HeadingId = blockId("iwt1_heading");
+  const iwt1TextId = blockId("iwt1_text");
+
+  const iwt1 = content.imageWithText[0];
+
+  const imageWithText1Section = {
+    type: "image-with-text",
+    blocks: {
+      [iwt1HeadingId]: {
+        type: "heading",
+        settings: {
+          title: escapeHtml(iwt1?.heading || "Image with text"),
+          title_highlight_color: "#6d388b",
+          heading_size: "h2",
+        },
+      },
+      [iwt1TextId]: {
+        type: "text",
+        settings: {
+          text: richtext(escapeHtml(iwt1?.body || "Pair text with an image to focus on your chosen product, collection, or blog post. Add details on availability, style, or even provide a review.")),
+          text_style: "body",
+        },
+      },
+    },
+    block_order: [iwt1HeadingId, iwt1TextId],
+    settings: {
+      display_id: false,
+      visibility: "always-display",
+      video_autoplay: true,
+      video_loop: true,
+      height: "adapt",
+      color_scheme: "background-1",
+      section_color_scheme: "background-1",
+      full_desktop_width: false,
+      content_layout: "no-overlap",
+      desktop_media_width: 50,
+      layout: "image_first",
+      desktop_content_position: "top",
+      desktop_content_alignment: "left",
+      mobile_full_media_width: false,
+      mobile_direction: "normal",
+      mobile_image_quanlity: "2",
+      mobile_content_alignment: "left",
+      mobile_padding_top: 0,
+      mobile_padding_bottom: 12,
+      desktop_padding_top: 36,
+      desktop_padding_bottom: 36,
+      custom_colors_background: "#2e2a39",
+      custom_gradient_background: "",
+      custom_colors_text: "#ffffff",
+      custom_colors_solid_button_background: "#dd1d1d",
+      custom_colors_solid_button_text: "#ffffff",
+      custom_colors_outline_button: "#dd1d1d",
+      custom_section_colors_background: "#ffffff",
+      custom_section_gradient_background: "",
+    },
+  };
+
+  // ═══════════════════════════════════════════════════════════════════
+  // CUSTOM COLUMNS
+  // ═══════════════════════════════════════════════════════════════════
   const customColumnsId = blockId("custom_columns");
   const ccBlocks: Record<string, object> = {};
   const ccBlockOrder: string[] = [];
 
-  // Heading block (full width col_1)
-  const ccHeadingId = blockId("cc_heading");
-  ccBlocks[ccHeadingId] = {
-    type: "heading",
-    settings: {
-      column: "col_1",
-      visibility: "always-display",
-      heading: content.title || "Custom columns",
-      title_highlight_color: "#6d388b",
-      heading_size: "h1",
-      alignment: "center",
-      mobile_alignment: "mobile-center",
-      margin_top: 20,
-      margin_bottom: 20,
-    },
-  };
-  ccBlockOrder.push(ccHeadingId);
-
-  // Richtext block (full width col_1)
-  const ccRichtextId = blockId("cc_richtext");
-  ccBlocks[ccRichtextId] = {
-    type: "richtext",
-    settings: {
-      column: "col_1",
-      visibility: "always-display",
-      text: richtext(escapeHtml(content.subtitle)),
-      text_style: "body",
-      alignment: "center",
-      mobile_alignment: "mobile-center",
-      margin_top: 20,
-      margin_bottom: 20,
-    },
-  };
-  ccBlockOrder.push(ccRichtextId);
-
-  // Features as icon_with_text blocks in col_2 and col_4
   const features = content.customColumnFeatures.length > 0
     ? content.customColumnFeatures
     : content.iconFeatures.map((f) => ({ title: f.heading, text: f.heading }));
 
-  const half = Math.ceil(features.length / 2);
-  const leftFeatures = features.slice(0, half);
-  const rightFeatures = features.slice(half);
+  // First feature in col_1
+  if (features[0]) {
+    const id = blockId("cc_icon");
+    ccBlocks[id] = {
+      type: "icon_with_text",
+      settings: {
+        column: "col_1",
+        visibility: "always-display",
+        icon: "check_circle",
+        filled_icon: false,
+        icon_size: "m",
+        icon_position: "next-to-title",
+        icon_color: "accent-1",
+        icon_heading_size: "h3",
+        icon_text_alignment: "left",
+        title: escapeHtml(features[0].title),
+        text: richtext(escapeHtml(features[0].text || "")),
+        margin_top: 20,
+        margin_bottom: 20,
+      },
+    };
+    ccBlockOrder.push(id);
+  }
 
-  leftFeatures.forEach((f, i) => {
+  // Remaining features in col_2
+  features.slice(1).forEach((f, i) => {
     const id = blockId("cc_icon");
     ccBlocks[id] = {
       type: "icon_with_text",
@@ -403,48 +442,8 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
         icon_text_alignment: "left",
         title: escapeHtml(f.title),
         text: richtext(escapeHtml(f.text || "")),
-        margin_top: 20,
-        margin_bottom: i === leftFeatures.length - 1 ? 20 : 30,
-      },
-    };
-    ccBlockOrder.push(id);
-  });
-
-  // Image placeholder in col_3
-  const ccImageId = blockId("cc_image");
-  ccBlocks[ccImageId] = {
-    type: "image",
-    settings: {
-      column: "col_3",
-      visibility: "always-display",
-      width: 100,
-      alignment: "center",
-      mobile_alignment: "center",
-      border_radius: 0,
-      margin_top: 20,
-      margin_bottom: 20,
-    },
-  };
-  ccBlockOrder.push(ccImageId);
-
-  rightFeatures.forEach((f, i) => {
-    const id = blockId("cc_icon");
-    ccBlocks[id] = {
-      type: "icon_with_text",
-      settings: {
-        column: "col_4",
-        visibility: "always-display",
-        icon: "check_circle",
-        filled_icon: false,
-        icon_size: "m",
-        icon_position: "next-to-title",
-        icon_color: "accent-1",
-        icon_heading_size: "h3",
-        icon_text_alignment: "left",
-        title: escapeHtml(f.title),
-        text: richtext(escapeHtml(f.text || "")),
-        margin_top: 20,
-        margin_bottom: i === rightFeatures.length - 1 ? 20 : 30,
+        margin_top: i === 0 ? 20 : 12,
+        margin_bottom: i === 0 ? 30 : 0,
       },
     };
     ccBlockOrder.push(id);
@@ -483,8 +482,8 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
       col_6_desktop_width: 3,
       col_6_mobile_width: 4,
       col_6_visibility: "always-display",
-      padding_top: 36,
-      padding_bottom: 36,
+      padding_top: 12,
+      padding_bottom: 0,
       custom_colors_background: "#ffffff",
       custom_gradient_background: "",
       custom_colors_text: "#2e2a39",
@@ -494,149 +493,148 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
     },
   };
 
-  // ── Image Slider Section ──────────────────────────────────────────
-  const imageSliderId = blockId("image_slider");
-  const slideIds = [1, 2, 3, 4].map(() => blockId("slide"));
-  const imageSliderBlocks = Object.fromEntries(
-    slideIds.map((id) => [
+  // ═══════════════════════════════════════════════════════════════════
+  // MULTIROW
+  // ═══════════════════════════════════════════════════════════════════
+  const multirowId = blockId("multirow");
+  const multirowBlocks: Record<string, object> = {};
+  const multirowBlockOrder: string[] = [];
+
+  const iwtSource = content.imageWithText.length > 1
+    ? content.imageWithText.slice(1)
+    : [
+        { heading: "Row", body: "Pair text with an image to focus on your chosen product, collection, or blog post. Add details on availability, style, or even provide a review." },
+        { heading: "Row", body: "Pair text with an image to focus on your chosen product, collection, or blog post. Add details on availability, style, or even provide a review." },
+      ];
+
+  iwtSource.forEach((section) => {
+    const rowId = blockId("row");
+    multirowBlocks[rowId] = {
+      type: "row",
+      settings: {
+        video_muted_autoplay: true,
+        caption: "",
+        title: escapeHtml(section.heading || "Row"),
+        title_highlight_color: "#6d388b",
+        text: richtext(escapeHtml(section.body || "")),
+        button_label: "",
+        button_link: "",
+        atc_button_label: "",
+        atc_product: "",
+        atc_skip_cart: false,
+      },
+    };
+    multirowBlockOrder.push(rowId);
+  });
+
+  const multirowSection = {
+    type: "multirow",
+    blocks: multirowBlocks,
+    block_order: multirowBlockOrder,
+    settings: {
+      display_id: false,
+      visibility: "always-display",
+      image_height: "medium",
+      desktop_image_width: "medium",
+      heading_size: "h1",
+      text_style: "body",
+      button_style: "secondary",
+      desktop_content_position: "middle",
+      desktop_content_alignment: "left",
+      image_layout: "alternate-left",
+      row_color_scheme: "background-1",
+      section_color_scheme: "background-1",
+      mobile_full_media_width: false,
+      mobile_direction: "normal",
+      mobile_content_alignment: "left",
+      padding_top: 0,
+      padding_bottom: 12,
+      custom_colors_background: "#2e2a39",
+      custom_gradient_background: "",
+      custom_colors_text: "#ffffff",
+      custom_colors_solid_button_background: "#dd1d1d",
+      custom_colors_solid_button_text: "#ffffff",
+      custom_colors_outline_button: "#dd1d1d",
+      custom_section_colors_background: "#ffffff",
+      custom_section_gradient_background: "",
+    },
+  };
+
+  // ═══════════════════════════════════════════════════════════════════
+  // COMPARISON TABLE
+  // ═══════════════════════════════════════════════════════════════════
+  const comparisonId = blockId("comparison_table");
+  const compRowIds = content.comparisonTable.benefits.map(() => blockId("row"));
+  const comparisonBlocks = Object.fromEntries(
+    compRowIds.map((id, i) => [
       id,
       {
-        type: "image_slide",
+        type: "row",
         settings: {
-          link: "",
-          description: "",
-          desc_alignment: "center",
-          desc_color_scheme: "background-2",
+          benefit: `<strong>${escapeHtml(content.comparisonTable.benefits[i] || "Benefit")}</strong>`,
+          us: true,
+          others: false,
+          others_2: false,
+          others_3: false,
         },
       },
     ])
   );
 
-  const imageSliderSection = {
-    type: "image-slider",
-    blocks: imageSliderBlocks,
-    block_order: slideIds,
+  const comparisonTableSection = {
+    type: "comparison-table",
+    blocks: comparisonBlocks,
+    block_order: compRowIds,
     settings: {
       display_id: false,
       visibility: "always-display",
-      title: "Image/Video Slider",
+      title: "Comparison table",
       title_highlight_color: "#6d388b",
       heading_size: "h1",
-      color_scheme: "background-1",
-      type: "slide",
-      drag: "enabled",
-      autoplay: false,
-      autoplay_speed: 5,
-      center_mode: false,
-      arrows_color_scheme: "inverse",
-      transparent_arrows: false,
-      dots_color_scheme: "inverse",
-      desktop_full_page: false,
-      desktop_border_radius: 0,
-      slides_desktop: 3,
-      per_move_desktop: 1,
-      desktop_spacing: 28,
-      desktop_side_padding: 0,
-      desktop_padding_calc: true,
-      desktop_adaptive_height: false,
-      desktop_dots_position: "under",
-      desktop_arrows_position: "sides",
-      mobile_full_page: false,
-      mobile_border_radius: 0,
-      slides_mobile: 2,
-      per_move_mobile: 1,
-      mobile_spacing: 12,
-      mobile_side_padding: 0,
-      mobile_padding_calc: true,
-      mobile_adaptive_height: false,
-      mobile_dots_position: "under",
-      mobile_arrows_position: "sides",
-      padding_top: 36,
-      padding_bottom: 36,
-      custom_colors_background: "#ffffff",
-      custom_gradient_background: "",
-      custom_colors_text: "#121212",
-    },
-  };
-
-  // ── Icons With Content Section ──────────────────────────────────────
-  const iconsContentId = blockId("icons_content");
-  const iconBlocks: Record<string, object> = {};
-  const iconBlockOrder: string[] = [];
-
-  // Icon blocks
-  const iconFeatures = content.customColumnFeatures.length > 0
-    ? content.customColumnFeatures.slice(0, 3)
-    : content.iconFeatures.slice(0, 3).map((f) => ({ title: f.heading, text: f.heading }));
-
-  iconFeatures.forEach((f) => {
-    const id = blockId("icon");
-    iconBlocks[id] = {
-      type: "icon",
-      settings: {
-        icon: "check_circle",
-        filled_icon: false,
-        title: escapeHtml(f.title),
-        text: richtext(escapeHtml(f.text || "")),
-      },
-    };
-    iconBlockOrder.push(id);
-  });
-
-  // Heading block
-  const iconsHeadingId = blockId("icons_heading");
-  iconBlocks[iconsHeadingId] = {
-    type: "heading",
-    settings: {
-      title: escapeHtml(content.title || "Content heading"),
-      title_highlight_color: "#6d388b",
-      heading_size: "h1",
-    },
-  };
-  iconBlockOrder.push(iconsHeadingId);
-
-  // Text block
-  const iconsTextId = blockId("icons_text");
-  iconBlocks[iconsTextId] = {
-    type: "text",
-    settings: {
-      text: richtext(escapeHtml(content.subtitle)),
-      text_style: "body",
-    },
-  };
-  iconBlockOrder.push(iconsTextId);
-
-  // Button block
-  const iconsButtonId = blockId("icons_button");
-  iconBlocks[iconsButtonId] = {
-    type: "button",
-    settings: {
-      button_label: "Button label",
-      button_link: "",
+      text: "",
+      button_label: "",
+      link: "",
       button_style_secondary: false,
-    },
-  };
-  iconBlockOrder.push(iconsButtonId);
-
-  const iconsWithContentSection = {
-    type: "icons-with-content",
-    blocks: iconBlocks,
-    block_order: iconBlockOrder,
-    settings: {
-      display_id: false,
-      visibility: "always-display",
+      atc_button_label: "",
+      atc_product: "",
+      atc_skip_cart: false,
+      desktop_alignment: "center",
+      mobile_alignment: "center",
       color_scheme: "background-1",
-      icon_size: "m",
-      icon_position: "next-to-title",
-      icon_color: "accent-1",
-      icon_heading_size: "h3",
-      icon_text_alignment: "left",
-      icons_desktop_layout: "1-column",
-      icons_mobile_layout: "1-column",
-      desktop_content_alignment: "left",
-      layout: "image_first",
-      mobile_layout: "text_first",
-      hide_content_on_mobile: false,
+      layout: "table_second",
+      style: "classic",
+      corner_radius: 20,
+      number_of_competitors: 1,
+      us_label: "[shop_name]",
+      us_label_size: 18,
+      logo_width: 90,
+      mobile_logo_width: 60,
+      others_label: "Others",
+      others_label_size: 18,
+      others_logo_width: 90,
+      others_mobile_logo_width: 60,
+      others_2_label: "Competitor 2",
+      others_2_label_size: 18,
+      others_2_logo_width: 90,
+      others_2_mobile_logo_width: 60,
+      others_3_label: "Competitor 3",
+      others_3_label_size: 18,
+      others_3_logo_width: 90,
+      others_3_mobile_logo_width: 60,
+      checkmark_style: "regular",
+      checkmark_color: "#53af01",
+      checkmark_bg_color: "#53af01",
+      x_style: "regular",
+      x_color: "#dd1d1d",
+      x_bg_color: "#dbdbdb",
+      opposite_icon_colors: "original",
+      highlighted_color_scheme: "accent-1",
+      highlighted_separator_opacity: 0,
+      highlighted_overlay_opacity: 0,
+      other_cells_color_scheme: "background-1",
+      regular_separator_opacity: 10,
+      regular_overlay_opacity: 0,
+      minimalistic_border_opacity: 16,
       padding_top: 36,
       padding_bottom: 36,
       custom_colors_background: "#ffffff",
@@ -645,12 +643,80 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
       custom_colors_solid_button_background: "#dd1d1d",
       custom_colors_solid_button_text: "#ffffff",
       custom_colors_outline_button: "#dd1d1d",
+      custom_colors_highlighted_background: "#2e2a39",
+      custom_colors_highlighted_text: "#ffffff",
+      custom_colors_others_background: "#ffffff",
+      custom_colors_others_text: "#2e2a39",
     },
   };
 
-  // ── Testimonials Section ──────────────────────────────────────────
-  const testimonialsId = blockId("testimonials");
-  const testimonialReviews = content.reviews.length > 0
+  // ═══════════════════════════════════════════════════════════════════
+  // IMAGE WITH TEXT 2
+  // ═══════════════════════════════════════════════════════════════════
+  const iwt2Id = blockId("image_with_text");
+  const iwt2HeadingId = blockId("iwt2_heading");
+  const iwt2TextId = blockId("iwt2_text");
+
+  const iwt2 = content.imageWithText[1] || content.imageWithText[0];
+
+  const imageWithText2Section = {
+    type: "image-with-text",
+    blocks: {
+      [iwt2HeadingId]: {
+        type: "heading",
+        settings: {
+          title: escapeHtml(iwt2?.heading || "Image with text"),
+          title_highlight_color: "#6d388b",
+          heading_size: "h2",
+        },
+      },
+      [iwt2TextId]: {
+        type: "text",
+        settings: {
+          text: richtext(escapeHtml(iwt2?.body || "Pair text with an image to focus on your chosen product, collection, or blog post. Add details on availability, style, or even provide a review.")),
+          text_style: "body",
+        },
+      },
+    },
+    block_order: [iwt2HeadingId, iwt2TextId],
+    settings: {
+      display_id: false,
+      visibility: "always-display",
+      video_autoplay: true,
+      video_loop: true,
+      height: "adapt",
+      color_scheme: "background-1",
+      section_color_scheme: "background-1",
+      full_desktop_width: false,
+      content_layout: "no-overlap",
+      desktop_media_width: 50,
+      layout: "image_first",
+      desktop_content_position: "middle",
+      desktop_content_alignment: "center",
+      mobile_full_media_width: false,
+      mobile_direction: "normal",
+      mobile_image_quanlity: "2",
+      mobile_content_alignment: "center",
+      mobile_padding_top: 0,
+      mobile_padding_bottom: 16,
+      desktop_padding_top: 36,
+      desktop_padding_bottom: 36,
+      custom_colors_background: "#2e2a39",
+      custom_gradient_background: "",
+      custom_colors_text: "#ffffff",
+      custom_colors_solid_button_background: "#dd1d1d",
+      custom_colors_solid_button_text: "#ffffff",
+      custom_colors_outline_button: "#dd1d1d",
+      custom_section_colors_background: "#ffffff",
+      custom_section_gradient_background: "",
+    },
+  };
+
+  // ═══════════════════════════════════════════════════════════════════
+  // TRUSTPILOT REVIEWS
+  // ═══════════════════════════════════════════════════════════════════
+  const trustpilotReviewsId = blockId("trustpilot_reviews");
+  const reviews = content.reviews.length > 0
     ? content.reviews.slice(0, 3)
     : [
         { author: "Author", text: "Share positive thoughts and feedback from your customer..", title: "Heading" },
@@ -658,41 +724,53 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
         { author: "Author", text: "Share positive thoughts and feedback from your customer..", title: "Heading" },
       ];
 
-  const testimonialColumnIds = testimonialReviews.map(() => blockId("testimonial_col"));
-  const testimonialBlocks = Object.fromEntries(
-    testimonialColumnIds.map((id, i) => [
+  const reviewColumnIds = reviews.map(() => blockId("column"));
+  const reviewBlocks = Object.fromEntries(
+    reviewColumnIds.map((id, i) => [
       id,
       {
         type: "column",
         settings: {
-          title: testimonialReviews[i]?.title || "Heading",
-          text: richtext(escapeHtml(testimonialReviews[i]?.text || "")),
-          author: `<em><strong>${escapeHtml(testimonialReviews[i]?.author || "Author")}</strong></em>`,
+          star_color: "#00b67a",
+          bg_star_color: "#c8c8c8",
+          star_symbol_color: "#fff",
+          stars_rating: 5,
+          title: reviews[i]?.title || "Heading",
+          text: richtext(escapeHtml(reviews[i]?.text || "")),
+          author: `<em><strong>${escapeHtml(reviews[i]?.author || "Author")}</strong></em>`,
         },
       },
     ])
   );
 
-  const testimonialsSection = {
-    type: "testimonials",
-    blocks: testimonialBlocks,
-    block_order: testimonialColumnIds,
+  const trustpilotReviewsSection = {
+    type: "trustpilot-reviews",
+    blocks: reviewBlocks,
+    block_order: reviewColumnIds,
+    name: "Trustpilot reviews",
     settings: {
       display_id: false,
       visibility: "always-display",
-      title: "Testimonials",
-      title_highlight_color: "#6d388b",
-      heading_size: "h1",
-      text: "",
       color_scheme: "background-1",
-      image_width: "full",
-      image_ratio: "square",
-      column_alignment: "center",
+      desktop_content_position: "above",
+      desktop_content_alignment: "center",
+      title: "Trustpilot reviews",
+      title_highlight_color: "#6D388B",
+      heading_size: "h1",
+      subtitle: "Excellent [rating] <strong>/ 5</strong> [rating_stars]",
+      subheading_rating_text: "<strong>4.8</strong>",
+      subheading_mobile_text_size: 18,
+      subheading_desktop_text_size: 20,
+      subheading_font: "body",
+      star_color: "#00b67a",
+      bg_star_color: "#c8c8c8",
+      star_symbol_color: "#fff",
+      stars_rating: 5,
+      text: "",
+      cards_border_radius: 16,
+      card_alignment: "center",
       show_stars: true,
-      stars_color: "#ffd700",
-      show_quotes: true,
-      quotes_color_scheme: "accent-2",
-      cards_color_scheme: "bg-overlay",
+      cards_color_scheme: "background-2",
       type: "slide",
       autoplay: false,
       autoplay_speed: 5,
@@ -703,7 +781,7 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
       columns_desktop: 3,
       slider_desktop: false,
       per_move_desktop: 1,
-      desktop_spacing: 40,
+      desktop_spacing: 24,
       desktop_side_padding: 0,
       desktop_padding_calc: true,
       desktop_adaptive_height: false,
@@ -716,17 +794,19 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
       mobile_arrows_position: "under",
       padding_top: 36,
       padding_bottom: 36,
-      custom_colors_background: "#ffffff",
+      custom_colors_background: "#FFFFFF",
       custom_gradient_background: "",
-      custom_colors_text: "#2e2a39",
-      custom_cards_colors_background: "#f3f3f3",
+      custom_colors_text: "#2E2A39",
+      custom_cards_colors_background: "#F3F3F3",
       custom_cards_gradient_background: "",
-      custom_cards_colors_text: "#2e2a39",
+      custom_cards_colors_text: "#2E2A39",
     },
   };
 
-  // ── Section Divider ────────────────────────────────────────────────
-  const dividerId = blockId("divider");
+  // ═══════════════════════════════════════════════════════════════════
+  // SECTION DIVIDER
+  // ═══════════════════════════════════════════════════════════════════
+  const dividerId = blockId("section_divider");
   const sectionDivider = {
     type: "section-divider",
     settings: {
@@ -743,8 +823,9 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
     },
   };
 
-  // ── Related Products (disabled) ───────────────────────────────────
-  const relatedProductsId = "related-products";
+  // ═══════════════════════════════════════════════════════════════════
+  // RELATED PRODUCTS (disabled)
+  // ═══════════════════════════════════════════════════════════════════
   const relatedProducts = {
     type: "related-products",
     disabled: true,
@@ -760,15 +841,19 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
       show_secondary_image: false,
       show_vendor: false,
       show_rating: false,
+      enable_quick_add: false,
       columns_mobile: "2",
       padding_top: 36,
       padding_bottom: 24,
     },
   };
 
-  // ── Assemble Template ─────────────────────────────────────────────
-  // Exact order from Shrine Pro product.json:
-  // main → related-products → custom-columns → image-slider → icons-with-content → testimonials → section-divider
+  // ═══════════════════════════════════════════════════════════════════
+  // ASSEMBLE TEMPLATE
+  // Order: main → related-products → image_with_text_1 → custom_columns →
+  //        multirow → comparison_table → image_with_text_2 →
+  //        trustpilot_reviews → section_divider
+  // ═══════════════════════════════════════════════════════════════════
 
   const sections: Record<string, object> = {
     main: {
@@ -821,21 +906,25 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
         desktop_padding_bottom: 36,
       },
     },
-    [relatedProductsId]: relatedProducts,
+    "related-products": relatedProducts,
+    [iwt1Id]: imageWithText1Section,
     [customColumnsId]: customColumnsSection,
-    [imageSliderId]: imageSliderSection,
-    [iconsContentId]: iconsWithContentSection,
-    [testimonialsId]: testimonialsSection,
+    [multirowId]: multirowSection,
+    [comparisonId]: comparisonTableSection,
+    [iwt2Id]: imageWithText2Section,
+    [trustpilotReviewsId]: trustpilotReviewsSection,
     [dividerId]: sectionDivider,
   };
 
   const order = [
     "main",
-    relatedProductsId,
+    "related-products",
+    iwt1Id,
     customColumnsId,
-    imageSliderId,
-    iconsContentId,
-    testimonialsId,
+    multirowId,
+    comparisonId,
+    iwt2Id,
+    trustpilotReviewsId,
     dividerId,
   ];
 
