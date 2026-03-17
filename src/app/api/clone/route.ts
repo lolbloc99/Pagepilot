@@ -51,10 +51,19 @@ export async function POST(req: NextRequest) {
     const html = await pageRes.text();
     const $ = cheerio.load(html);
 
-    // Remove non-content elements (keep small inline SVGs for icons)
+    // Remove non-content elements — but KEEP video/media elements
     $(
-      "script, noscript, iframe, nav, footer, header, [role='navigation'], [role='banner'], [role='contentinfo'], .shopify-section-header, .shopify-section-footer"
+      "script, noscript, [role='navigation'], [role='banner'], [role='contentinfo'], .shopify-section-header, .shopify-section-footer"
     ).remove();
+
+    // Remove nav/header/footer but NOT if they contain product content
+    $("nav, footer, header").each((_, el) => {
+      const text = $(el).text().trim();
+      // Keep if it has significant product content (>500 chars = probably not just nav)
+      if (text.length < 500) {
+        $(el).remove();
+      }
+    });
 
     // Remove large SVGs (>2000 chars) but keep small ones (icons)
     $("svg").each((_, el) => {
@@ -64,39 +73,91 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    // Remove data-* attributes (reduce size, not needed for visual)
+    // Remove data-* attributes EXCEPT media-related ones
+    const keepDataAttrs = new Set([
+      "data-src", "data-srcset", "data-poster", "data-video",
+      "data-image", "data-sizes", "data-widths", "data-aspectratio",
+      "data-bg", "data-background", "data-bg-src",
+      "data-media-id", "data-thumb", "data-thumbnail",
+      "data-zoom", "data-zoom-image", "data-large",
+    ]);
     $("*").each((_, el) => {
       const elem = $(el);
       const attribs = (el as unknown as { attribs: Record<string, string> }).attribs || {};
       Object.keys(attribs).forEach((attr) => {
-        if (attr.startsWith("data-") && attr !== "data-src" && attr !== "data-srcset") {
+        if (attr.startsWith("data-") && !keepDataAttrs.has(attr)) {
           elem.removeAttr(attr);
         }
       });
     });
 
-    // Make image src absolute
+    // === IMAGES: Make all URLs absolute ===
     $("img").each((_, el) => {
       const elem = $(el);
-      const src = elem.attr("src");
+
+      // Fix src
+      let src = elem.attr("src") || "";
+      if (!src || src === "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==") {
+        // Lazy-loaded: try data-src, data-lazy-src
+        src = elem.attr("data-src") || elem.attr("data-lazy-src") || elem.attr("data-original") || "";
+      }
       if (src) {
-        if (src.startsWith("//")) {
-          elem.attr("src", "https:" + src);
-        } else if (src.startsWith("/")) {
-          elem.attr("src", baseUrl + src);
-        }
+        src = makeAbsolute(src, baseUrl);
+        elem.attr("src", src);
       }
-      const srcset = elem.attr("srcset");
+
+      // Fix srcset
+      let srcset = elem.attr("srcset") || elem.attr("data-srcset") || "";
       if (srcset) {
-        const fixed = srcset.replace(/\/\/([^\s,]+)/g, "https://$1");
-        elem.attr("srcset", fixed);
+        srcset = fixSrcset(srcset, baseUrl);
+        elem.attr("srcset", srcset);
       }
-      // Promote data-src to src if no src
-      if (!src && elem.attr("data-src")) {
-        let dataSrc = elem.attr("data-src") || "";
-        if (dataSrc.startsWith("//")) dataSrc = "https:" + dataSrc;
-        else if (dataSrc.startsWith("/")) dataSrc = baseUrl + dataSrc;
-        elem.attr("src", dataSrc);
+
+      // Remove loading=lazy (we want images to show in Shopify)
+      elem.removeAttr("loading");
+
+      // Ensure alt attribute exists
+      if (!elem.attr("alt")) {
+        elem.attr("alt", "");
+      }
+    });
+
+    // === VIDEOS: Make URLs absolute, keep poster ===
+    $("video").each((_, el) => {
+      const elem = $(el);
+      const src = elem.attr("src");
+      if (src) elem.attr("src", makeAbsolute(src, baseUrl));
+      const poster = elem.attr("poster") || elem.attr("data-poster") || "";
+      if (poster) elem.attr("poster", makeAbsolute(poster, baseUrl));
+      // Ensure controls and autoplay attributes for playback
+      if (!elem.attr("controls")) elem.attr("controls", "");
+    });
+
+    // === VIDEO SOURCES ===
+    $("video source, source[type^='video']").each((_, el) => {
+      const elem = $(el);
+      const src = elem.attr("src");
+      if (src) elem.attr("src", makeAbsolute(src, baseUrl));
+    });
+
+    // === IFRAMES: Keep YouTube/Vimeo embeds, remove others ===
+    $("iframe").each((_, el) => {
+      const elem = $(el);
+      const src = elem.attr("src") || "";
+      if (src.includes("youtube") || src.includes("vimeo") || src.includes("player")) {
+        // Keep video embeds, make absolute
+        if (src.startsWith("//")) elem.attr("src", "https:" + src);
+      } else {
+        elem.remove();
+      }
+    });
+
+    // === PICTURE elements: fix source srcset ===
+    $("picture source").each((_, el) => {
+      const elem = $(el);
+      const srcset = elem.attr("srcset") || elem.attr("data-srcset") || "";
+      if (srcset) {
+        elem.attr("srcset", fixSrcset(srcset, baseUrl));
       }
     });
 
@@ -104,7 +165,9 @@ export async function POST(req: NextRequest) {
     $("[style]").each((_, el) => {
       const elem = $(el);
       let style = elem.attr("style") || "";
-      style = style.replace(/url\((['"]?)\/([^)]+)\1\)/g, `url($1${baseUrl}/$2$1)`);
+      // Fix url() in background/background-image
+      style = style.replace(/url\((['"]?)\/\/([^)]+)\1\)/g, `url($1https://$2$1)`);
+      style = style.replace(/url\((['"]?)\/(?!\/|http|data)([^)]+)\1\)/g, `url($1${baseUrl}/$2$1)`);
       elem.attr("style", style);
     });
 
@@ -115,7 +178,7 @@ export async function POST(req: NextRequest) {
       if (content) cssBlocks.push(content);
     });
 
-    // Fetch external stylesheets with timeout
+    // Fetch external stylesheets with timeout (up to 8)
     const stylesheetUrls: string[] = [];
     $('link[rel="stylesheet"]').each((_, el) => {
       const href = $(el).attr("href");
@@ -134,10 +197,10 @@ export async function POST(req: NextRequest) {
     });
 
     const externalCss = await Promise.all(
-      stylesheetUrls.slice(0, 5).map(async (cssUrl) => {
+      stylesheetUrls.slice(0, 8).map(async (cssUrl) => {
         try {
           const ctrl = new AbortController();
-          const t = setTimeout(() => ctrl.abort(), 5000);
+          const t = setTimeout(() => ctrl.abort(), 8000);
           const res = await fetch(cssUrl, {
             headers: { "User-Agent": "Mozilla/5.0" },
             signal: ctrl.signal,
@@ -152,14 +215,14 @@ export async function POST(req: NextRequest) {
     );
     cssBlocks.push(...externalCss.filter(Boolean));
 
-    // Make CSS url() references absolute — don't strip whitespace (breaks rendering)
+    // Make CSS url() references absolute
     const combinedCss = cssBlocks
       .join("\n")
       .replace(/url\((['"]?)\/\/([^)]+)\1\)/g, `url($1https://$2$1)`)
-      .replace(/url\((['"]?)\/(?!\/|http)([^)]+)\1\)/g, `url($1${baseUrl}/$2$1)`)
+      .replace(/url\((['"]?)\/(?!\/|http|data)([^)]+)\1\)/g, `url($1${baseUrl}/$2$1)`)
       .trim();
 
-    // Get main content
+    // Get main content — try multiple selectors, prefer the most specific
     let mainContent =
       $("main").html() ||
       $('[role="main"]').html() ||
@@ -174,14 +237,27 @@ export async function POST(req: NextRequest) {
       .replace(/\n{3,}/g, "\n\n")
       .trim();
 
-    // Extract images list
+    // Extract images list (for UI display)
     const images: { src: string; alt: string }[] = [];
     $("img").each((_, el) => {
       const src = $(el).attr("src") || $(el).attr("data-src");
-      if (src) {
+      if (src && !src.startsWith("data:")) {
         images.push({
-          src: src.startsWith("//") ? "https:" + src : src,
+          src: makeAbsolute(src, baseUrl),
           alt: $(el).attr("alt") || "",
+        });
+      }
+    });
+
+    // Extract videos list
+    const videos: { src: string; poster: string }[] = [];
+    $("video").each((_, el) => {
+      const elem = $(el);
+      const src = elem.attr("src") || elem.find("source").first().attr("src") || "";
+      if (src) {
+        videos.push({
+          src: makeAbsolute(src, baseUrl),
+          poster: elem.attr("poster") || "",
         });
       }
     });
@@ -190,7 +266,6 @@ export async function POST(req: NextRequest) {
     const result = await clonePage(mainContent, combinedCss, lang, baseUrl);
 
     // Build preview HTML from original scraped content (not Liquid)
-    // Limit CSS to 500KB to avoid huge responses
     const previewCss = combinedCss.length > 500000 ? combinedCss.slice(0, 500000) : combinedCss;
     const previewHtml = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -205,6 +280,8 @@ export async function POST(req: NextRequest) {
       previewHtml,
       imagesFound: images.length,
       images: images.slice(0, 20),
+      videosFound: videos.length,
+      videos: videos.slice(0, 10),
     });
   } catch (error) {
     console.error("Clone error:", error);
@@ -222,4 +299,27 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+// === Helper functions ===
+
+function makeAbsolute(url: string, baseUrl: string): string {
+  if (!url || url.startsWith("data:") || url.startsWith("blob:")) return url;
+  if (url.startsWith("//")) return "https:" + url;
+  if (url.startsWith("/")) return baseUrl + url;
+  if (url.startsWith("http")) return url;
+  return baseUrl + "/" + url;
+}
+
+function fixSrcset(srcset: string, baseUrl: string): string {
+  return srcset
+    .split(",")
+    .map((entry) => {
+      const parts = entry.trim().split(/\s+/);
+      if (parts[0]) {
+        parts[0] = makeAbsolute(parts[0], baseUrl);
+      }
+      return parts.join(" ");
+    })
+    .join(", ");
 }
