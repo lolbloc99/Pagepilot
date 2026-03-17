@@ -72,8 +72,8 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
         size: 16,
         alignment: "flex-start",
         scroll_id: "",
-        margin_top: 4,
-        margin_bottom: 8,
+        margin_top: 3,
+        margin_bottom: 9,
       },
     },
     [priceId]: {
@@ -82,8 +82,8 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
         layout: "price_first",
         price_color: "accent-1",
         compare_price_color: "text",
-        margin_top: 8,
-        margin_bottom: 8,
+        margin_top: 9,
+        margin_bottom: 9,
       },
     },
     [textBlockId]: {
@@ -100,7 +100,7 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
         filled_icon_3: false,
         direction: "horizontal",
         enable_bg: false,
-        margin_top: 8,
+        margin_top: 9,
         margin_bottom: 12,
       },
     },
@@ -116,7 +116,7 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
         icon_3: content.iconFeatures[2]?.icon || "local_shipping",
         heading_3: content.iconFeatures[2]?.heading || "",
         margin_top: 12,
-        margin_bottom: 16,
+        margin_bottom: 15,
       },
     },
     [variantPickerId]: {
@@ -134,7 +134,7 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
         breaks_captions: "",
         breaks_price_texts: "",
         breaks_compare_price_texts: "",
-        margin_top: 8,
+        margin_top: 9,
         margin_bottom: 0,
       },
     },
@@ -229,8 +229,8 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
         max_days_4: 15,
         date_format: "mm_dd",
         color_scheme: "inverse",
-        margin_top: 16,
-        margin_bottom: 16,
+        margin_top: 15,
+        margin_bottom: 15,
       },
     },
     [paymentBadgesId]: {
@@ -238,7 +238,7 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
       settings: {
         enabled_payment_types: "visa,mastercard,amex,paypal,apple_pay,google_pay",
         margin_top: 0,
-        margin_bottom: 8,
+        margin_bottom: 9,
       },
     },
     [stickyAtcId]: {
@@ -248,15 +248,13 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
         display_when: "after_scroll",
         button_label: "",
         color_scheme: "background-1",
-        margin_top: 0,
-        margin_bottom: 0,
       },
     },
     [descriptionId]: {
       type: "description",
       settings: {
         margin_top: 24,
-        margin_bottom: 16,
+        margin_bottom: 15,
       },
     },
     [emojiBenefitsId]: {
@@ -268,7 +266,7 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
             .join("<br/>")
         ),
         margin_top: 0,
-        margin_bottom: 16,
+        margin_bottom: 15,
       },
     },
     [reviewsBlockId]: {
@@ -292,8 +290,8 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
           ? `<em><strong>${escapeHtml(content.reviews[2].author)}</strong></em>`
           : "",
         text_3: content.reviews[2] ? richtext(escapeHtml(content.reviews[2].text)) : "",
-        margin_top: 16,
-        margin_bottom: 16,
+        margin_top: 15,
+        margin_bottom: 15,
       },
     },
     ...Object.fromEntries(
