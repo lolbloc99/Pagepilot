@@ -11,6 +11,8 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "10mb",
     },
   },
+  // Increase API response size limit
+  serverExternalPackages: ["cheerio"],
 };
 
 export default nextConfig;

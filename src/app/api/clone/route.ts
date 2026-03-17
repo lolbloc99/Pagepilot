@@ -3,6 +3,9 @@ import * as cheerio from "cheerio";
 import { clonePage } from "@/lib/ai/clone-page";
 import { rateLimit, validateUrl } from "@/lib/utils/security";
 
+// Allow up to 5 minutes for clone (AI can be slow)
+export const maxDuration = 300;
+
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("x-forwarded-for") || "anonymous";
@@ -22,9 +25,9 @@ export async function POST(req: NextRequest) {
 
     const baseUrl = new URL(url).origin;
 
-    // Fetch page with timeout
+    // Fetch page with timeout (30s)
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => controller.abort(), 30000);
 
     const pageRes = await fetch(url, {
       headers: {
@@ -187,10 +190,12 @@ export async function POST(req: NextRequest) {
     const result = await clonePage(mainContent, combinedCss, lang, baseUrl);
 
     // Build preview HTML from original scraped content (not Liquid)
+    // Limit CSS to 500KB to avoid huge responses
+    const previewCss = combinedCss.length > 500000 ? combinedCss.slice(0, 500000) : combinedCss;
     const previewHtml = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <base href="${baseUrl}/">
-<style>${combinedCss}</style>
+<style>${previewCss}</style>
 <style>*, *::before, *::after { box-sizing: border-box; } body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }</style>
 </head><body>${mainContent}</body></html>`;
 
@@ -203,12 +208,18 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("Clone error:", error);
-    const message =
-      error instanceof Error
-        ? error.name === "AbortError"
-          ? "Page took too long to load (timeout 15s)"
-          : error.message
-        : "Failed to clone page";
+    let message = "Failed to clone page";
+    if (error instanceof Error) {
+      if (error.name === "AbortError") {
+        message = "Page took too long to load (timeout 30s)";
+      } else if (error.message.includes("fetch failed") || error.message.includes("ENOTFOUND")) {
+        message = "Impossible d'accéder à cette URL. Vérifiez qu'elle est correcte et accessible.";
+      } else if (error.message.includes("credit balance")) {
+        message = "Crédits API insuffisants. Vérifiez votre solde Anthropic.";
+      } else {
+        message = error.message;
+      }
+    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
