@@ -4,6 +4,8 @@ import { buildShopifyTemplate } from "@/lib/templates/builder";
 import { ScrapedProductSchema } from "@/lib/scrapers/types";
 import { rateLimit } from "@/lib/utils/security";
 
+export const maxDuration = 120;
+
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("x-forwarded-for") || "anonymous";

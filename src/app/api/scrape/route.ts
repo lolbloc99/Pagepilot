@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { scrapeProduct, detectPlatform } from "@/lib/scrapers";
 import { rateLimit, validateUrl } from "@/lib/utils/security";
 
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("x-forwarded-for") || "anonymous";

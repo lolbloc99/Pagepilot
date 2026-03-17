@@ -36,16 +36,20 @@ export default function Home() {
     setTemplate(null);
     setGeneratedContent(null);
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 180000); // 3 min total
+
     try {
       const scrapeRes = await fetch("/api/scrape", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
+        signal: controller.signal,
       });
 
       if (!scrapeRes.ok) {
-        let errMsg = "Failed to scrape product";
-        try { const d = await scrapeRes.json(); errMsg = d.error || errMsg; } catch { errMsg = `Scrape error (${scrapeRes.status})`; }
+        let errMsg = "Impossible de scraper le produit";
+        try { const d = await scrapeRes.json(); errMsg = d.error || errMsg; } catch { errMsg = `Erreur scraping (${scrapeRes.status})`; }
         throw new Error(errMsg);
       }
 
@@ -57,17 +61,23 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ product: scrapedProduct, language, tone }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeout);
+
       if (!generateRes.ok) {
-        let errMsg = "Failed to generate content";
+        let errMsg = "Erreur lors de la génération";
         try {
           const d = await generateRes.json();
           errMsg = d.error || errMsg;
           if (errMsg.includes("Rate limit") || errMsg.includes("rate_limit")) {
-            errMsg = "Limite d'API atteinte (Groq gratuit: 100k tokens/jour). Réessayez demain ou passez au plan payant Groq.";
+            errMsg = "Limite d'API atteinte. Réessayez dans quelques minutes.";
           }
-        } catch { errMsg = `Generate error (${generateRes.status})`; }
+          if (errMsg.includes("credit balance")) {
+            errMsg = "Crédits API insuffisants. Vérifiez votre solde Anthropic.";
+          }
+        } catch { errMsg = `Erreur serveur (${generateRes.status})`; }
         throw new Error(errMsg);
       }
 
@@ -76,7 +86,12 @@ export default function Home() {
       setGeneratedContent(result.content);
       setStep("done");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      clearTimeout(timeout);
+      if (err instanceof Error && err.name === "AbortError") {
+        setError("La génération a pris trop de temps (timeout 3 min). Réessayez.");
+      } else {
+        setError(err instanceof Error ? err.message : "Une erreur est survenue");
+      }
       setStep("error");
     }
   }
