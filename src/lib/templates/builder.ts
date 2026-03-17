@@ -1,11 +1,25 @@
 import { GeneratedContent } from "../ai/generate-content";
-import { v4 as uuid } from "uuid";
 
+let counter = 0;
 function blockId(prefix: string): string {
-  return `${prefix}_${uuid().slice(0, 6)}`;
+  counter++;
+  return `${prefix}_${counter.toString(36).padStart(6, "0")}`;
 }
 
-/** Escape HTML special characters to prevent XSS in template output */
+function resetIds(): void {
+  counter = 0;
+}
+
+function richtext(text: string): string {
+  if (!text) return "<p></p>";
+  if (text.startsWith("<p>") || text.startsWith("<ul>") || text.startsWith("<ol>")) return text;
+  return `<p>${text}</p>`;
+}
+
+function inlineRichtext(text: string): string {
+  return text || "";
+}
+
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
@@ -16,751 +30,721 @@ function escapeHtml(str: string): string {
 }
 
 export function buildShopifyTemplate(content: GeneratedContent): object {
-  const trustpilotId = blockId("trustpilot_stars");
-  const textId = blockId("text");
-  const iconWithTextId = blockId("icon_with_text");
+  resetIds();
+
+  // ── Main Product Section ────────────────────────────────────────────
+  const titleBlockId = blockId("title");
+  const ratingStarsId = blockId("rating_stars");
+  const priceId = blockId("price");
   const variantPickerId = blockId("variant_picker");
   const quantitySelectorId = blockId("quantity_selector");
+  const buyButtonsId = blockId("buy_buttons");
+  const shippingCheckpointsId = blockId("shipping_checkpoints");
+  const stickyAtcId = blockId("sticky_atc");
+  const descriptionId = blockId("description");
   const paymentBadgesId = blockId("payment_badges");
-  const collapsibleIds = content.collapsibleTabs.map(() =>
-    blockId("collapsible_tab")
-  );
+  const reviewsBlockId = blockId("reviews");
+  const textBlockId = blockId("text");
+  const iconWithTextId = blockId("icon_with_text");
+  const emojiBenefitsId = blockId("emoji_benefits");
 
-  // Image with text section IDs
-  const imageWithTextIds = content.imageWithText.map(() =>
-    blockId("image_with_text")
-  );
+  const collapsibleTabIds = content.collapsibleTabs.map(() => blockId("collapsible_tab"));
 
-  // Multirow block IDs
-  const multirowBlockIds = content.multirowSections.map(() => blockId("row"));
-
-  // Comparison table row IDs
-  const comparisonRowIds = content.comparisonTable.benefits.map(() =>
-    blockId("row")
-  );
-
-  // Review column IDs
-  const reviewColumnIds = content.reviews.map(() => blockId("column"));
-
-  // Custom column icon IDs
-  const customColumnIconIds = content.customColumnFeatures.map(() =>
-    blockId("icon_with_text")
-  );
-
-  const template: Record<string, unknown> = {
-    layout: "theme",
-    sections: {
-      main: {
-        type: "main-product",
-        blocks: {
-          [trustpilotId]: {
-            type: "trustpilot_stars",
-            settings: {
-              rating: 5,
-              star_color: "#00b67a",
-              bg_star_color: "#c8c8c8",
-              star_symbol_color: "#ffffff",
-              label: `(${content.reviewCount} Reviews)`,
-              size: 16,
-              alignment: "center",
-              scroll_id: "",
-              margin_top: 15,
-              margin_bottom: 15,
-            },
-          },
-          title: {
-            type: "title",
-            settings: {
-              text_size: "h1",
-              title_alignment: "left",
-              uppercase_title: false,
-              margin_top: 0,
-              margin_bottom: 0,
-            },
-          },
-          [textId]: {
-            type: "text",
-            settings: {
-              mobile_text_size: 14,
-              desktop_text_size: 16,
-              alignment: "center",
-              text_color: "#121212",
-              text_1: content.iconTexts[0] || "",
-              text_2: content.iconTexts[1] || "",
-              text_3: content.iconTexts[2] || "",
-              icon_scale: 120,
-              icon_color: "#121212",
-              icon_1: "",
-              filled_icon_1: false,
-              icon_2: "check_circle",
-              filled_icon_2: false,
-              icon_3: "check_circle",
-              filled_icon_3: false,
-              width: "100%",
-              direction: "horizontal",
-              column_gap: 3,
-              enable_bg: false,
-              bg_color: "#f3f3f3",
-              corner_radius: 40,
-              padding: 3,
-              border_size: 0,
-              border_color: "#b7b7b7",
-              margin_top: 6,
-              margin_bottom: 0,
-            },
-          },
-          [iconWithTextId]: {
-            type: "icon_with_text",
-            settings: {
-              layout: "horizontal",
-              icon_color: "accent-1",
-              desktop_icon_size: 48,
-              desktop_spacing: 12,
-              desktop_text_size: 18,
-              mobile_icon_size: 40,
-              mobile_spacing: 10,
-              mobile_text_size: 14,
-              icon_1: content.iconFeatures[0]?.icon || "favorite",
-              icon_1_fill: false,
-              heading_1: content.iconFeatures[0]?.heading || "",
-              icon_2: content.iconFeatures[1]?.icon || "undo",
-              icon_2_fill: false,
-              heading_2: content.iconFeatures[1]?.heading || "",
-              icon_3: content.iconFeatures[2]?.icon || "local_shipping",
-              icon_3_fill: false,
-              heading_3: content.iconFeatures[2]?.heading || "",
-              margin_top: 24,
-              margin_bottom: 24,
-            },
-          },
-          [variantPickerId]: {
-            type: "variant_picker",
-            settings: {
-              picker_types: "quantity breaks",
-              custom_labels: "[name] - [selected]",
-              skip_unavailable: false,
-              swatches_size: "medium",
-              swatches_custom_colors: "disabled",
-              swatches_custom_colors_list:
-                "#000000, #6D388B, #0000FF, #FFCC00",
-              full_width_dropdowns: true,
-              breaks_style: "vertical",
-              breaks_headline: "",
-              breaks_display_selected_indicator: true,
-              breaks_border_radius: 10,
-              breaks_border_width: 2,
-              breaks_color_scheme: "accent-1",
-              breaks_badges: "Stock Faible, Épuisé,Épuisé",
-              breaks_badge_style: "1",
-              breaks_badge_color: "accent-1",
-              breaks_displayed_images: "variant_images",
-              breaks_custom_images: "",
-              breaks_image_width: 70,
-              breaks_space_images: true,
-              breaks_vertical_images_position: "top",
-              breaks_vertical_prices_layout: "vertical",
-              breaks_labels: "[name], [name], [name]",
-              breaks_benefits: "",
-              breaks_benefit_position: "top",
-              breaks_benefit_style: "outlined",
-              breaks_benefit_color: "accent-1",
-              breaks_captions: "",
-              breaks_price_texts: "[price], [price], [price]",
-              breaks_compare_price_texts:
-                "[compare_price], [compare_price], [compare_price]",
-              margin_top: 6,
-              margin_bottom: 0,
-            },
-          },
-          [quantitySelectorId]: {
-            type: "quantity_selector",
-            disabled: true,
-            settings: {
-              full_width_classic: false,
-              atc_append: "none",
-              atc_append_heights: "stretch-quantity",
-              enable_quantity_discounts: false,
-              style: "normal",
-              headline: "BUNDLE & SAVE",
-              preselected: "option_1",
-              display_selected_indicator: true,
-              border_radius: 10,
-              border_width: 2,
-              color_scheme: "accent-1",
-              enable_variant_selectors: true,
-              enable_variant_selectors_on_quantity_of_1: false,
-              update_prices: false,
-              skip_unavailable: false,
-              full_width_pickers: false,
-              hide_pickers_overlay: true,
-              pickers_label: "",
-              image_width: 70,
-              space_images: true,
-              vertical_images_position: "top",
-              vertical_prices_layout: "vertical",
-              option_1_quantity: 1,
-              option_1_badge: "",
-              option_1_badge_style: "1",
-              option_1_badge_color: "accent-1",
-              option_1_label: "Buy [quantity]",
-              option_1_benefit: "",
-              option_1_benefit_position: "top",
-              option_1_benefit_style: "outlined",
-              option_1_benefit_color: "accent-1",
-              option_1_caption: "You save [amount_saved]",
-              option_1_percentage_off_text: "0",
-              option_1_fixed_amount_off: "0",
-              option_1_price_text: "[price]",
-              option_1_compare_price: "compare_price",
-              option_1_compare_price_text: "[compare_price]",
-              option_2_quantity: 2,
-              option_2_badge: "",
-              option_2_badge_style: "1",
-              option_2_badge_color: "accent-1",
-              option_2_label: "Buy [quantity]",
-              option_2_benefit: "",
-              option_2_benefit_position: "top",
-              option_2_benefit_style: "outlined",
-              option_2_benefit_color: "accent-1",
-              option_2_caption: "You save [amount_saved]",
-              option_2_percentage_off_text: "0",
-              option_2_fixed_amount_off: "0",
-              option_2_price_text: "[price]",
-              option_2_compare_price: "compare_price",
-              option_2_compare_price_text: "[compare_price]",
-              option_3_quantity: 3,
-              option_3_badge: "",
-              option_3_badge_style: "1",
-              option_3_badge_color: "accent-1",
-              option_3_label: "Buy [quantity]",
-              option_3_benefit: "",
-              option_3_benefit_position: "top",
-              option_3_benefit_style: "outlined",
-              option_3_benefit_color: "accent-1",
-              option_3_caption: "You save [amount_saved]",
-              option_3_percentage_off_text: "0",
-              option_3_fixed_amount_off: "0",
-              option_3_price_text: "[price]",
-              option_3_compare_price: "compare_price",
-              option_3_compare_price_text: "[compare_price]",
-              option_4_quantity: 4,
-              option_4_badge: "",
-              option_4_badge_style: "1",
-              option_4_badge_color: "accent-1",
-              option_4_label: "Buy [quantity]",
-              option_4_benefit: "",
-              option_4_benefit_position: "top",
-              option_4_benefit_style: "outlined",
-              option_4_benefit_color: "accent-1",
-              option_4_caption: "You save [amount_saved]",
-              option_4_percentage_off_text: "0",
-              option_4_fixed_amount_off: "0",
-              option_4_price_text: "[price]",
-              option_4_compare_price: "compare_price",
-              option_4_compare_price_text: "[compare_price]",
-              margin_top: 15,
-              margin_bottom: 15,
-            },
-          },
-          buy_buttons: {
-            type: "buy_buttons",
-            settings: {
-              show_dynamic_checkout: false,
-              skip_cart: true,
-              uppercase_text: true,
-              icon_scale: 120,
-              icon_spacing: 10,
-              display_price: true,
-              enable_custom_color: false,
-              custom_color: "#53af01",
-              enable_secondary_btn: false,
-              secondary_btn_label: "Buy It Now",
-              secondary_btn_enable_custom_color: false,
-              secondary_btn_custom_color: "#dd1d1d",
-              margin_top: 15,
-              margin_bottom: 0,
-            },
-          },
-          [paymentBadgesId]: {
-            type: "payment_badges",
-            settings: {
-              enabled_payment_types: "apple_pay,google_pay,visa,master",
-              margin_top: 0,
-              margin_bottom: 6,
-            },
-          },
-          description: {
-            type: "description",
-            settings: {
-              margin_top: 24,
-              margin_bottom: 24,
-            },
-          },
-          // Collapsible tabs
-          ...Object.fromEntries(
-            collapsibleIds.map((id, i) => [
-              id,
-              {
-                type: "collapsible_tab",
-                settings: {
-                  heading: content.collapsibleTabs[i].heading,
-                  heading_size: "small",
-                  icon: content.collapsibleTabs[i].icon || "",
-                  filled_icon: false,
-                  collapse_icon: "carret",
-                  display_top_border: true,
-                  open: false,
-                  content: content.collapsibleTabs[i].content,
-                  page: "",
-                  margin_top: 24,
-                  margin_bottom: 0,
-                },
-              },
-            ])
-          ),
-        },
-        block_order: [
-          trustpilotId,
-          "title",
-          textId,
-          iconWithTextId,
-          variantPickerId,
-          quantitySelectorId,
-          "buy_buttons",
-          paymentBadgesId,
-          "description",
-          ...collapsibleIds,
-        ],
-        custom_css: [],
-        settings: {
-          display_id: false,
-          enable_sticky_info: true,
-          display_variant_image_first: false,
-          disable_prepend: true,
-          hide_variants: false,
-          variant_image_filtering: "none",
-          image_zoom: "none",
-          arrows_color_scheme: "inverse",
-          transparent_arrows: false,
-          dots_color_scheme: "inverse",
-          video_player: "play_btn",
-          enable_video_looping: false,
-          autoplay_videos_pause_btn: false,
-          video_sound_btn: false,
-          video_timeline: false,
-          play_btn_color_scheme: "accent-1",
-          sound_btn_color_scheme: "inverse",
-          timeline_color: "accent-1",
-          media_size: "medium",
-          media_position: "left",
-          gallery_layout: "thumbnail_slider",
-          desktop_thumbnails_count: 5,
-          constrain_to_viewport: true,
-          media_fit: "contain",
-          desktop_arrows_position: "hidden",
-          mobile_media_corner_radius: 0,
-          mobile_spacing_pixels: 0,
-          mobile_arrows_position: "sides",
-          mobile_pagination: "dots_overlay",
-          mobile_thumbnails: "hide",
-          mobile_thumbnails_count: 5,
-          mobile_scroll_padding_percentage: 0,
-          mobile_scroll_padding_pixels: 14,
-          enable_mobile_outher_spacing: false,
-          mobile_slides_container_width: 100,
-          mobile_slides_inner_width: 100,
-          trust_badge_position: "top-right",
-          trust_badge_size: "medium",
-          mobile_padding_top: 0,
-          mobile_padding_bottom: 16,
-          desktop_padding_top: 36,
-          desktop_padding_bottom: 36,
-        },
+  const mainProductBlocks: Record<string, object> = {
+    [titleBlockId]: {
+      type: "title",
+      settings: {
+        text_size: "h1",
+        title_alignment: "left",
+        uppercase_title: false,
+        margin_top: 0,
+        margin_bottom: 0,
       },
-      "related-products": {
-        type: "related-products",
-        disabled: true,
-        settings: {
-          display_id: false,
-          title: "You may also like",
-          title_highlight_color: "#6d388b",
-          heading_size: "h2",
-          products_to_show: 4,
-          columns_desktop: 4,
-          color_scheme: "background-1",
-          image_ratio: "adapt",
-          show_secondary_image: false,
-          show_vendor: false,
-          show_rating: false,
-          enable_quick_add: false,
-          columns_mobile: "2",
-          padding_top: 36,
-          padding_bottom: 24,
-        },
+    },
+    [ratingStarsId]: {
+      type: "rating_stars",
+      settings: {
+        rating: 4.8,
+        star_color: "#ffcc00",
+        bg_stars_style: "full",
+        bg_star_color: "#ececec",
+        label: `<strong>4.8</strong> (${content.reviewCount} Reviews)`,
+        size: 16,
+        alignment: "flex-start",
+        scroll_id: "",
+        margin_top: 4,
+        margin_bottom: 8,
       },
-      // Image with text sections
-      ...Object.fromEntries(
-        imageWithTextIds.map((sectionId, i) => {
-          const headingBlockId = blockId("heading");
-          const textBlockId = blockId("text");
-          return [
-            sectionId,
-            {
-              type: "image-with-text",
-              blocks: {
-                [headingBlockId]: {
-                  type: "heading",
-                  settings: {
-                    title: content.imageWithText[i].heading,
-                    title_highlight_color: "#6d388b",
-                    heading_size: "h2",
-                  },
-                },
-                [textBlockId]: {
-                  type: "text",
-                  settings: {
-                    text: content.imageWithText[i].body,
-                    text_style: "body",
-                  },
-                },
-              },
-              block_order: [headingBlockId, textBlockId],
-              settings: {
-              display_id: false,
-              visibility: "always-display",
-              video_autoplay: true,
-              video_loop: true,
-              height: "adapt",
-              color_scheme: "background-1",
-              section_color_scheme: "background-1",
-              full_desktop_width: false,
-              content_layout: "no-overlap",
-              desktop_media_width: 50,
-              layout: i % 2 === 0 ? "image_first" : "text_first",
-              desktop_content_position: i === 0 ? "top" : "middle",
-              desktop_content_alignment: i === 0 ? "left" : "center",
-              mobile_full_media_width: false,
-              mobile_direction: "normal",
-              mobile_image_quanlity: "2",
-              mobile_content_alignment: i === 0 ? "left" : "center",
-              mobile_padding_top: 0,
-              mobile_padding_bottom: i === 0 ? 12 : 16,
-              desktop_padding_top: 36,
-              desktop_padding_bottom: 36,
-              custom_colors_background: "#2e2a39",
-              custom_gradient_background: "",
-              custom_colors_text: "#ffffff",
-              custom_colors_solid_button_background: "#dd1d1d",
-              custom_colors_solid_button_text: "#ffffff",
-              custom_colors_outline_button: "#dd1d1d",
-              custom_section_colors_background: "#ffffff",
-              custom_section_gradient_background: "",
-            },
-          },
-        ];
-        })
-      ),
-      // Custom columns section
-      [`custom_columns_${uuid().slice(0, 6)}`]: {
-        type: "custom-columns",
-        blocks: Object.fromEntries(
-          customColumnIconIds.map((id, i) => [
-            id,
-            {
-              type: "icon_with_text",
-              settings: {
-                column: i === 0 ? "col_1" : "col_2",
-                visibility: "always-display",
-                icon: "check_circle",
-                filled_icon: false,
-                icon_size: "m",
-                icon_position: "next-to-title",
-                icon_color: "accent-1",
-                icon_heading_size: "h3",
-                icon_text_alignment: "left",
-                title: content.customColumnFeatures[i]?.title || "",
-                text: `<p>${escapeHtml(content.customColumnFeatures[i]?.text || "")}</p>`,
-                margin_top: i === 0 ? 20 : 12,
-                margin_bottom: i === 1 ? 30 : i === 0 ? 20 : 0,
-              },
-            },
-          ])
+    },
+    [priceId]: {
+      type: "price",
+      settings: {
+        layout: "price_first",
+        price_color: "accent-1",
+        compare_price_color: "text",
+        margin_top: 8,
+        margin_bottom: 8,
+      },
+    },
+    [textBlockId]: {
+      type: "text",
+      settings: {
+        text_1: content.iconTexts[0] || "",
+        text_2: content.iconTexts[1] || "",
+        text_3: content.iconTexts[2] || "",
+        icon_1: "check_circle",
+        filled_icon_1: false,
+        icon_2: "check_circle",
+        filled_icon_2: false,
+        icon_3: "check_circle",
+        filled_icon_3: false,
+        direction: "horizontal",
+        enable_bg: false,
+        margin_top: 8,
+        margin_bottom: 12,
+      },
+    },
+    [iconWithTextId]: {
+      type: "icon_with_text",
+      settings: {
+        layout: "horizontal",
+        icon_color: "accent-1",
+        icon_1: content.iconFeatures[0]?.icon || "favorite",
+        heading_1: content.iconFeatures[0]?.heading || "",
+        icon_2: content.iconFeatures[1]?.icon || "undo",
+        heading_2: content.iconFeatures[1]?.heading || "",
+        icon_3: content.iconFeatures[2]?.icon || "local_shipping",
+        heading_3: content.iconFeatures[2]?.heading || "",
+        margin_top: 12,
+        margin_bottom: 16,
+      },
+    },
+    [variantPickerId]: {
+      type: "variant_picker",
+      settings: {
+        picker_types: "pills, dropdown, dropdown",
+        custom_labels: "[name] - [selected]",
+        swatches_size: "medium",
+        breaks_style: "normal",
+        breaks_headline: "",
+        breaks_color_scheme: "accent-1",
+        breaks_badges: "",
+        breaks_labels: "",
+        breaks_benefits: "",
+        breaks_captions: "",
+        breaks_price_texts: "",
+        breaks_compare_price_texts: "",
+        margin_top: 8,
+        margin_bottom: 0,
+      },
+    },
+    [quantitySelectorId]: {
+      type: "quantity_selector",
+      disabled: true,
+      settings: {
+        style: "normal",
+        headline: "BUNDLE & SAVE",
+        preselected: "option_1",
+        color_scheme: "accent-1",
+        enable_variant_selectors: true,
+        option_1_quantity: 1,
+        option_1_badge: "",
+        option_1_label: "Buy [quantity]",
+        option_1_benefit: "",
+        option_1_caption: "",
+        option_1_percentage_off_text: "0",
+        option_1_fixed_amount_off: "0",
+        option_1_price_text: "[price]",
+        option_1_compare_price: "compare_price",
+        option_1_compare_price_text: "[compare_price]",
+        option_2_quantity: 2,
+        option_2_badge: "Most Popular",
+        option_2_label: "Buy [quantity]",
+        option_2_benefit: "Save 10%",
+        option_2_caption: "",
+        option_2_percentage_off_text: "10",
+        option_2_fixed_amount_off: "0",
+        option_2_price_text: "[price]",
+        option_2_compare_price: "compare_price",
+        option_2_compare_price_text: "[compare_price]",
+        option_3_quantity: 3,
+        option_3_badge: "Best Value",
+        option_3_label: "Buy [quantity]",
+        option_3_benefit: "Save 15%",
+        option_3_caption: "",
+        option_3_percentage_off_text: "15",
+        option_3_fixed_amount_off: "0",
+        option_3_price_text: "[price]",
+        option_3_compare_price: "compare_price",
+        option_3_compare_price_text: "[compare_price]",
+        option_4_quantity: 4,
+        option_4_badge: "",
+        option_4_label: "Buy [quantity]",
+        option_4_benefit: "Save 20%",
+        option_4_caption: "",
+        option_4_percentage_off_text: "20",
+        option_4_fixed_amount_off: "0",
+        option_4_price_text: "[price]",
+        option_4_compare_price: "compare_price",
+        option_4_compare_price_text: "[compare_price]",
+        margin_top: 12,
+        margin_bottom: 12,
+      },
+    },
+    [buyButtonsId]: {
+      type: "buy_buttons",
+      settings: {
+        show_dynamic_checkout: false,
+        skip_cart: false,
+        uppercase_text: true,
+        icon_scale: 120,
+        display_price: false,
+        enable_custom_color: false,
+        margin_top: 12,
+        margin_bottom: 0,
+      },
+    },
+    [shippingCheckpointsId]: {
+      type: "shipping_checkpoints",
+      settings: {
+        icon_1: "inventory_2",
+        top_text_1: "Order Placed",
+        bottom_text_1: "Today",
+        min_days_1: 0,
+        max_days_1: 0,
+        icon_2: "local_shipping",
+        top_text_2: "Shipped",
+        bottom_text_2: "",
+        min_days_2: 1,
+        max_days_2: 3,
+        icon_3: "flight",
+        top_text_3: "In Transit",
+        bottom_text_3: "",
+        min_days_3: 7,
+        max_days_3: 10,
+        icon_4: "home",
+        top_text_4: "Delivered",
+        bottom_text_4: "",
+        min_days_4: 10,
+        max_days_4: 15,
+        date_format: "mm_dd",
+        color_scheme: "inverse",
+        margin_top: 16,
+        margin_bottom: 16,
+      },
+    },
+    [paymentBadgesId]: {
+      type: "payment_badges",
+      settings: {
+        enabled_payment_types: "visa,mastercard,amex,paypal,apple_pay,google_pay",
+        margin_top: 0,
+        margin_bottom: 8,
+      },
+    },
+    [stickyAtcId]: {
+      type: "sticky_atc",
+      settings: {
+        function: "add_to_cart",
+        display_when: "after_scroll",
+        button_label: "",
+        color_scheme: "background-1",
+        margin_top: 0,
+        margin_bottom: 0,
+      },
+    },
+    [descriptionId]: {
+      type: "description",
+      settings: {
+        margin_top: 24,
+        margin_bottom: 16,
+      },
+    },
+    [emojiBenefitsId]: {
+      type: "emoji_benefits",
+      settings: {
+        benefits: richtext(
+          content.iconFeatures
+            .map((f) => `\u2705 ${escapeHtml(f.heading)}`)
+            .join("<br/>")
         ),
-        block_order: customColumnIconIds,
-        settings: {
-          display_id: false,
-          visibility: "always-display",
-          color_scheme: "background-1",
-          columns_count: 4,
-          column_gap_desktop: 40,
-          row_gap_desktop: 40,
-          desktop_vertical_alignment: "center",
-          column_gap_mobile: 20,
-          row_gap_mobile: 30,
-          mobile_vertical_alignment: "flex-start",
-          col_1_desktop_width: 12,
-          col_1_mobile_width: 4,
-          col_1_visibility: "always-display",
-          col_2_desktop_width: 4,
-          col_2_mobile_width: 4,
-          col_2_visibility: "always-display",
-          col_3_desktop_width: 4,
-          col_3_mobile_width: 4,
-          col_3_visibility: "always-display",
-          col_4_desktop_width: 4,
-          col_4_mobile_width: 4,
-          col_4_visibility: "always-display",
-          col_5_desktop_width: 3,
-          col_5_mobile_width: 4,
-          col_5_visibility: "always-display",
-          col_6_desktop_width: 3,
-          col_6_mobile_width: 4,
-          col_6_visibility: "always-display",
-          padding_top: 12,
-          padding_bottom: 0,
-          custom_colors_background: "#ffffff",
-          custom_gradient_background: "",
-          custom_colors_text: "#2e2a39",
-          custom_colors_solid_button_background: "#dd1d1d",
-          custom_colors_solid_button_text: "#ffffff",
-          custom_colors_outline_button: "#dd1d1d",
-        },
+        margin_top: 0,
+        margin_bottom: 16,
       },
-      // Multirow section
-      [`multirow_${uuid().slice(0, 6)}`]: {
-        type: "multirow",
-        blocks: Object.fromEntries(
-          multirowBlockIds.map((id, i) => [
-            id,
-            {
-              type: "row",
-              settings: {
-                video_muted_autoplay: true,
-                caption: "",
-                title: content.multirowSections[i]?.title || "Row",
-                title_highlight_color: "#6d388b",
-                text: content.multirowSections[i]?.text || "",
-                button_label: "",
-                button_link: "",
-                atc_button_label: "",
-                atc_product: "",
-                atc_skip_cart: false,
-              },
-            },
-          ])
-        ),
-        block_order: multirowBlockIds,
-        settings: {
-          display_id: false,
-          visibility: "always-display",
-          image_height: "medium",
-          desktop_image_width: "medium",
-          heading_size: "h1",
-          text_style: "body",
-          button_style: "secondary",
-          desktop_content_position: "middle",
-          desktop_content_alignment: "left",
-          image_layout: "alternate-left",
-          row_color_scheme: "background-1",
-          section_color_scheme: "background-1",
-          mobile_full_media_width: false,
-          mobile_direction: "normal",
-          mobile_content_alignment: "left",
-          padding_top: 0,
-          padding_bottom: 12,
-          custom_colors_background: "#2e2a39",
-          custom_gradient_background: "",
-          custom_colors_text: "#ffffff",
-          custom_colors_solid_button_background: "#dd1d1d",
-          custom_colors_solid_button_text: "#ffffff",
-          custom_colors_outline_button: "#dd1d1d",
-          custom_section_colors_background: "#ffffff",
-          custom_section_gradient_background: "",
-        },
+    },
+    [reviewsBlockId]: {
+      type: "reviews",
+      settings: {
+        color_scheme: "background-1",
+        corner_radius: 12,
+        star_color: "#ffcc00",
+        checkmark_color: "#6d388b",
+        slider_type: "slide",
+        display_dots: true,
+        author_1: content.reviews[0]
+          ? `<em><strong>${escapeHtml(content.reviews[0].author)}</strong></em>`
+          : "",
+        text_1: content.reviews[0] ? richtext(escapeHtml(content.reviews[0].text)) : "",
+        author_2: content.reviews[1]
+          ? `<em><strong>${escapeHtml(content.reviews[1].author)}</strong></em>`
+          : "",
+        text_2: content.reviews[1] ? richtext(escapeHtml(content.reviews[1].text)) : "",
+        author_3: content.reviews[2]
+          ? `<em><strong>${escapeHtml(content.reviews[2].author)}</strong></em>`
+          : "",
+        text_3: content.reviews[2] ? richtext(escapeHtml(content.reviews[2].text)) : "",
+        margin_top: 16,
+        margin_bottom: 16,
       },
-      // Comparison table
-      [`comparison_table_${uuid().slice(0, 6)}`]: {
-        type: "comparison-table",
-        blocks: Object.fromEntries(
-          comparisonRowIds.map((id, i) => [
-            id,
-            {
-              type: "row",
-              settings: {
-                benefit: `<strong>${escapeHtml(content.comparisonTable.benefits[i] || "Benefit")}</strong>`,
-                us: true,
-                others: false,
-                others_2: false,
-                others_3: false,
-              },
-            },
-          ])
-        ),
-        block_order: comparisonRowIds,
+    },
+    ...Object.fromEntries(
+      collapsibleTabIds.map((id, i) => [
+        id,
+        {
+          type: "collapsible_tab",
+          settings: {
+            heading: content.collapsibleTabs[i].heading,
+            heading_size: "medium",
+            icon: content.collapsibleTabs[i].icon || "check_box",
+            collapse_icon: "carret",
+            display_top_border: true,
+            open: false,
+            content: richtext(content.collapsibleTabs[i].content),
+            margin_top: 0,
+            margin_bottom: 0,
+          },
+        },
+      ])
+    ),
+  };
+
+  const mainProductBlockOrder = [
+    titleBlockId,
+    ratingStarsId,
+    priceId,
+    textBlockId,
+    iconWithTextId,
+    variantPickerId,
+    quantitySelectorId,
+    buyButtonsId,
+    shippingCheckpointsId,
+    paymentBadgesId,
+    stickyAtcId,
+    descriptionId,
+    emojiBenefitsId,
+    reviewsBlockId,
+    ...collapsibleTabIds,
+  ];
+
+  // ── Rich Text (Hero subtitle / hook) ────────────────────────────────
+  const richTextSectionId = blockId("rich_text_section");
+  const rtHeadingId = blockId("rt_heading");
+  const rtTextId = blockId("rt_text");
+
+  const richTextSection = {
+    type: "rich-text",
+    blocks: {
+      [rtHeadingId]: {
+        type: "heading",
         settings: {
-          display_id: false,
-          visibility: "always-display",
-          title: content.comparisonTable.title,
+          title: `<strong>${escapeHtml(content.title)}</strong>`,
           title_highlight_color: "#6d388b",
           heading_size: "h1",
-          text: "",
-          button_label: "",
-          link: "",
-          button_style_secondary: false,
-          atc_button_label: "",
-          atc_product: "",
-          atc_skip_cart: false,
-          desktop_alignment: "center",
-          mobile_alignment: "center",
-          color_scheme: "background-1",
-          layout: "table_second",
-          style: "classic",
-          corner_radius: 20,
-          number_of_competitors: 1,
-          us_label: "[shop_name]",
-          us_label_size: 18,
-          logo_width: 90,
-          mobile_logo_width: 60,
-          others_label: "Others",
-          others_label_size: 18,
-          others_logo_width: 90,
-          others_mobile_logo_width: 60,
-          others_2_label: "Competitor 2",
-          others_2_label_size: 18,
-          others_2_logo_width: 90,
-          others_2_mobile_logo_width: 60,
-          others_3_label: "Competitor 3",
-          others_3_label_size: 18,
-          others_3_logo_width: 90,
-          others_3_mobile_logo_width: 60,
-          checkmark_style: "regular",
-          checkmark_color: "#53af01",
-          checkmark_bg_color: "#53af01",
-          x_style: "regular",
-          x_color: "#dd1d1d",
-          x_bg_color: "#dbdbdb",
-          opposite_icon_colors: "original",
-          highlighted_color_scheme: "accent-1",
-          highlighted_separator_opacity: 0,
-          highlighted_overlay_opacity: 0,
-          other_cells_color_scheme: "background-1",
-          regular_separator_opacity: 10,
-          regular_overlay_opacity: 0,
-          minimalistic_border_opacity: 16,
-          padding_top: 36,
-          padding_bottom: 36,
-          custom_colors_background: "#ffffff",
-          custom_gradient_background: "",
-          custom_colors_text: "#2e2a39",
-          custom_colors_solid_button_background: "#dd1d1d",
-          custom_colors_solid_button_text: "#ffffff",
-          custom_colors_outline_button: "#dd1d1d",
-          custom_colors_highlighted_background: "#2e2a39",
-          custom_colors_highlighted_text: "#ffffff",
-          custom_colors_others_background: "#ffffff",
-          custom_colors_others_text: "#2e2a39",
         },
       },
-      // Trustpilot reviews section
-      [`trustpilot_reviews_${uuid().slice(0, 6)}`]: {
-        type: "trustpilot-reviews",
-        blocks: Object.fromEntries(
-          reviewColumnIds.map((id, i) => [
-            id,
-            {
-              type: "column",
-              settings: {
-                star_color: "#00b67a",
-                bg_star_color: "#c8c8c8",
-                star_symbol_color: "#fff",
-                stars_rating: 5,
-                title: content.reviews[i]?.title || "Great product!",
-                text: `<p>${escapeHtml(content.reviews[i]?.text || "")}</p>`,
-                author: `<em><strong>${escapeHtml(content.reviews[i]?.author || "Customer")}</strong></em>`,
-              },
-            },
-          ])
-        ),
-        block_order: reviewColumnIds,
-        name: "Trustpilot reviews",
+      [rtTextId]: {
+        type: "text",
         settings: {
-          display_id: false,
-          visibility: "always-display",
-          color_scheme: "background-1",
-          desktop_content_position: "above",
-          desktop_content_alignment: "center",
-          title: "Trustpilot reviews",
-          title_highlight_color: "#6D388B",
-          heading_size: "h1",
-          subtitle:
-            "Excellent [rating] <strong>/ 5</strong> [rating_stars]",
-          subheading_rating_text: "<strong>4.8</strong>",
-          subheading_mobile_text_size: 18,
-          subheading_desktop_text_size: 20,
-          subheading_font: "body",
-          star_color: "#00b67a",
-          bg_star_color: "#c8c8c8",
-          star_symbol_color: "#fff",
-          stars_rating: 5,
-          text: "",
-          cards_border_radius: 16,
-          card_alignment: "center",
-          show_stars: true,
-          cards_color_scheme: "background-2",
-          type: "slide",
-          autoplay: false,
-          autoplay_speed: 5,
-          arrows_color_scheme: "inverse",
-          transparent_arrows: true,
-          dots_color_scheme: "inverse",
-          desktop_full_page: false,
-          columns_desktop: 3,
-          slider_desktop: false,
-          per_move_desktop: 1,
-          desktop_spacing: 24,
-          desktop_side_padding: 0,
-          desktop_padding_calc: true,
-          desktop_adaptive_height: false,
-          desktop_dots_position: "under",
-          desktop_arrows_position: "sides",
-          slider_mobile: true,
-          enable_mobile_preview: false,
-          mobile_adaptive_height: false,
-          mobile_dots_position: "under",
-          mobile_arrows_position: "under",
-          padding_top: 36,
-          padding_bottom: 36,
-          custom_colors_background: "#FFFFFF",
-          custom_gradient_background: "",
-          custom_colors_text: "#2E2A39",
-          custom_cards_colors_background: "#F3F3F3",
-          custom_cards_gradient_background: "",
-          custom_cards_colors_text: "#2E2A39",
-        },
-      },
-      // Section divider
-      [`section_divider_${uuid().slice(0, 6)}`]: {
-        type: "section-divider",
-        settings: {
-          visibility: "always-display",
-          shape: "waves_3",
-          flip_horizontal: false,
-          flip_vertical: false,
-          shape_color: "accent-1",
-          custom_shape_color: "#dd1d1d",
-          background_color: "background-1",
-          custom_background_color: "#ffffff",
-          padding_top: 0,
-          padding_bottom: 0,
+          text: richtext(escapeHtml(content.subtitle)),
         },
       },
     },
-    order: [] as string[],
+    block_order: [rtHeadingId, rtTextId],
+    settings: {
+      desktop_content_position: "center",
+      content_alignment: "center",
+      color_scheme: "background-1",
+      padding_top: 40,
+      padding_bottom: 52,
+    },
   };
 
-  // Build order array from sections keys
-  const sections = template.sections as Record<string, unknown>;
-  template.order = Object.keys(sections);
+  // ── Section Divider 1 ───────────────────────────────────────────────
+  const divider1Id = blockId("divider_1");
+  const divider1 = {
+    type: "section-divider",
+    settings: {
+      shape: "waves_3",
+      flip_horizontal: false,
+      flip_vertical: false,
+      shape_color: "accent-1",
+      background_color: "background-1",
+    },
+  };
 
-  return template;
+  // ── Icons With Content (Key Features) ───────────────────────────────
+  const iconsContentId = blockId("icons_content");
+  const iconsHeadingBlockId = blockId("icons_heading");
+  const iconsTextBlockId = blockId("icons_text");
+  const iconBlocks: Record<string, object> = {};
+  const iconBlockOrder: string[] = [];
+
+  // Heading block
+  iconBlocks[iconsHeadingBlockId] = {
+    type: "heading",
+    settings: {
+      title: "<strong>Why You'll Love It</strong>",
+      title_highlight_color: "#6d388b",
+      heading_size: "h1",
+    },
+  };
+  iconBlockOrder.push(iconsHeadingBlockId);
+
+  // Caption / intro text
+  iconBlocks[iconsTextBlockId] = {
+    type: "text",
+    settings: {
+      text: richtext(escapeHtml(content.subtitle)),
+    },
+  };
+  iconBlockOrder.push(iconsTextBlockId);
+
+  // Icon blocks from customColumnFeatures (reuse as icon_with_text features)
+  const featureSource =
+    content.customColumnFeatures.length > 0
+      ? content.customColumnFeatures
+      : content.iconFeatures.map((f) => ({ title: f.heading, text: "" }));
+
+  featureSource.forEach((feature) => {
+    const iconId = blockId("icon");
+    iconBlocks[iconId] = {
+      type: "icon",
+      settings: {
+        icon: "check_circle",
+        filled_icon: false,
+        title: escapeHtml(feature.title),
+        text: richtext(escapeHtml(feature.text || "")),
+      },
+    };
+    iconBlockOrder.push(iconId);
+  });
+
+  const iconsWithContentSection = {
+    type: "icons-with-content",
+    blocks: iconBlocks,
+    block_order: iconBlockOrder,
+    settings: {
+      icon_size: "m",
+      icon_position: "next-to-title",
+      icon_color: "accent-1",
+      icon_heading_size: "h3",
+      icon_text_alignment: "left",
+      icons_desktop_layout: "2-column",
+      layout: "image_first",
+      color_scheme: "background-1",
+      padding_top: 36,
+      padding_bottom: 36,
+    },
+  };
+
+  // ── Section Divider 2 ───────────────────────────────────────────────
+  const divider2Id = blockId("divider_2");
+  const divider2 = {
+    type: "section-divider",
+    settings: {
+      shape: "diagonal_1",
+      flip_horizontal: false,
+      flip_vertical: true,
+      shape_color: "accent-1",
+      background_color: "background-1",
+    },
+  };
+
+  // ── Comparison Table ────────────────────────────────────────────────
+  const comparisonId = blockId("comparison");
+  const compRowIds = content.comparisonTable.benefits.map(() => blockId("comp_row"));
+  const comparisonBlocks = Object.fromEntries(
+    compRowIds.map((id, i) => [
+      id,
+      {
+        type: "row",
+        settings: {
+          benefit: `<strong>${escapeHtml(content.comparisonTable.benefits[i] || "Benefit")}</strong>`,
+          us: true,
+          others: false,
+        },
+      },
+    ])
+  );
+
+  const comparisonTableSection = {
+    type: "comparison-table",
+    blocks: comparisonBlocks,
+    block_order: compRowIds,
+    settings: {
+      title: inlineRichtext(content.comparisonTable.title || "Why Choose Us?"),
+      title_highlight_color: "#6D388B",
+      heading_size: "h1",
+      layout: "table_second",
+      style: "classic",
+      corner_radius: 20,
+      number_of_competitors: 1,
+      us_label: "[shop_name]",
+      others_label: "Others",
+      checkmark_style: "regular",
+      checkmark_color: "#53AF01",
+      x_color: "#121212",
+      highlighted_color_scheme: "accent-1",
+      color_scheme: "background-1",
+      padding_top: 36,
+      padding_bottom: 36,
+    },
+  };
+
+  // ── Image With Text ─────────────────────────────────────────────────
+  const imageWithTextSections: Record<string, object> = {};
+  const imageWithTextOrder: string[] = [];
+
+  content.imageWithText.forEach((section, i) => {
+    const sectionId = blockId("iwt_section");
+    const headId = blockId("iwt_heading");
+    const txtId = blockId("iwt_text");
+
+    imageWithTextSections[sectionId] = {
+      type: "image-with-text",
+      blocks: {
+        [headId]: {
+          type: "heading",
+          settings: {
+            title: escapeHtml(section.heading),
+            title_highlight_color: "#6d388b",
+            heading_size: "h2",
+          },
+        },
+        [txtId]: {
+          type: "text",
+          settings: {
+            text: richtext(escapeHtml(section.body)),
+          },
+        },
+      },
+      block_order: [headId, txtId],
+      settings: {
+        height: "adapt",
+        layout: i % 2 === 0 ? "image_first" : "text_first",
+        desktop_content_position: "top",
+        desktop_content_alignment: "left",
+        color_scheme: "background-1",
+        padding_top: 36,
+        padding_bottom: 36,
+      },
+    };
+    imageWithTextOrder.push(sectionId);
+  });
+
+  // ── Section Divider 3 ───────────────────────────────────────────────
+  const divider3Id = blockId("divider_3");
+  const divider3 = {
+    type: "section-divider",
+    settings: {
+      shape: "curved_1",
+      flip_horizontal: false,
+      flip_vertical: false,
+      shape_color: "accent-1",
+      background_color: "background-1",
+    },
+  };
+
+  // ── Testimonials ────────────────────────────────────────────────────
+  const testimonialsId = blockId("testimonials");
+  const testimonialColumnIds = content.reviews.map(() => blockId("testimonial_col"));
+  const testimonialBlocks = Object.fromEntries(
+    testimonialColumnIds.map((id, i) => [
+      id,
+      {
+        type: "column",
+        settings: {
+          title: content.reviews[i]?.title || "Amazing product!",
+          text: richtext(escapeHtml(content.reviews[i]?.text || "")),
+          author: `<strong>${escapeHtml(content.reviews[i]?.author || "Verified Customer")}</strong>`,
+        },
+      },
+    ])
+  );
+
+  const testimonialsSection = {
+    type: "testimonials",
+    blocks: testimonialBlocks,
+    block_order: testimonialColumnIds,
+    settings: {
+      title: `<strong>What Our Customers Say</strong>`,
+      title_highlight_color: "#6d388b",
+      heading_size: "h1",
+      show_stars: true,
+      stars_color: "#ffd700",
+      show_quotes: true,
+      cards_color_scheme: "bg-overlay",
+      columns_desktop: Math.min(content.reviews.length, 3),
+      slider_desktop: false,
+      color_scheme: "background-1",
+      padding_top: 36,
+      padding_bottom: 36,
+    },
+  };
+
+  // ── Section Divider 4 ───────────────────────────────────────────────
+  const divider4Id = blockId("divider_4");
+  const divider4 = {
+    type: "section-divider",
+    settings: {
+      shape: "waves_3",
+      flip_horizontal: true,
+      flip_vertical: false,
+      shape_color: "accent-1",
+      background_color: "background-1",
+    },
+  };
+
+  // ── FAQ Section (sp-faq) ────────────────────────────────────────────
+  const faqSectionId = blockId("faq");
+  // Build FAQ from collapsibleTabs content
+  const faqItems = content.collapsibleTabs.length > 0
+    ? content.collapsibleTabs
+    : [
+        { heading: "How long does shipping take?", content: "Orders typically arrive within 7-15 business days.", icon: "" },
+        { heading: "What is your return policy?", content: "We offer a 30-day money-back guarantee on all orders.", icon: "" },
+        { heading: "Is this product high quality?", content: "Yes, all our products are carefully tested and inspected.", icon: "" },
+        { heading: "Do you offer customer support?", content: "Our team is available 24/7 to assist you.", icon: "" },
+        { heading: "Can I track my order?", content: "Yes, you will receive a tracking number once your order ships.", icon: "" },
+      ];
+
+  const faqQuestionIds = faqItems.map(() => blockId("faq_q"));
+  const faqBlocks = Object.fromEntries(
+    faqQuestionIds.map((id, i) => [
+      id,
+      {
+        type: "question",
+        settings: {
+          question: `<b>${escapeHtml(faqItems[i].heading)}</b>`,
+          answer: richtext(escapeHtml(faqItems[i].content)),
+        },
+      },
+    ])
+  );
+
+  const faqSection = {
+    type: "sp-faq",
+    blocks: faqBlocks,
+    block_order: faqQuestionIds,
+    settings: {
+      headline: "<strong>Frequently Asked Questions</strong>",
+      text: "",
+      question_text_size: 25,
+      question_color: "#111111",
+      answer_color: "#555555",
+      text_alignment: "center",
+      container_max_width: 1000,
+      color_scheme: "background-1",
+      padding_top: 36,
+      padding_bottom: 36,
+    },
+  };
+
+  // ── Related Products (disabled) ─────────────────────────────────────
+  const relatedProductsId = blockId("related");
+  const relatedProducts = {
+    type: "related-products",
+    disabled: true,
+    settings: {
+      title: "You may also like",
+      title_highlight_color: "#6d388b",
+      heading_size: "h2",
+      products_to_show: 4,
+      columns_desktop: 4,
+      color_scheme: "background-1",
+      image_ratio: "adapt",
+      show_secondary_image: false,
+      show_vendor: false,
+      show_rating: false,
+      enable_quick_add: false,
+      columns_mobile: "2",
+      padding_top: 36,
+      padding_bottom: 24,
+    },
+  };
+
+  // ── Assemble Template ───────────────────────────────────────────────
+  const sections: Record<string, object> = {};
+  const order: string[] = [];
+
+  // 1. Main product
+  const mainId = "main";
+  sections[mainId] = {
+    type: "main-product",
+    blocks: mainProductBlocks,
+    block_order: mainProductBlockOrder,
+    settings: {
+      enable_sticky_info: true,
+      media_size: "medium",
+      media_position: "left",
+      gallery_layout: "thumbnail_slider",
+      media_fit: "contain",
+      trust_badge_position: "top-right",
+      padding_top: 36,
+      padding_bottom: 36,
+    },
+  };
+  order.push(mainId);
+
+  // 2. Rich text hero
+  sections[richTextSectionId] = richTextSection;
+  order.push(richTextSectionId);
+
+  // 3. Divider
+  sections[divider1Id] = divider1;
+  order.push(divider1Id);
+
+  // 4. Icons with content
+  sections[iconsContentId] = iconsWithContentSection;
+  order.push(iconsContentId);
+
+  // 5. Divider
+  sections[divider2Id] = divider2;
+  order.push(divider2Id);
+
+  // 6. Comparison table
+  sections[comparisonId] = comparisonTableSection;
+  order.push(comparisonId);
+
+  // 7. Image with text sections
+  for (let i = 0; i < imageWithTextOrder.length; i++) {
+    const id = imageWithTextOrder[i];
+    sections[id] = imageWithTextSections[id];
+    order.push(id);
+  }
+
+  // 8. Divider
+  sections[divider3Id] = divider3;
+  order.push(divider3Id);
+
+  // 9. Testimonials
+  sections[testimonialsId] = testimonialsSection;
+  order.push(testimonialsId);
+
+  // 10. Divider
+  sections[divider4Id] = divider4;
+  order.push(divider4Id);
+
+  // 11. FAQ
+  sections[faqSectionId] = faqSection;
+  order.push(faqSectionId);
+
+  // 12. Related products (disabled)
+  sections[relatedProductsId] = relatedProducts;
+  order.push(relatedProductsId);
+
+  return {
+    layout: "theme",
+    sections,
+    order,
+  };
 }
