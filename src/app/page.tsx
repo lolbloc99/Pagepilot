@@ -17,7 +17,7 @@ export default function Home() {
   const [step, setStep] = useState<Step>("idle");
   const [error, setError] = useState<string>("");
   const [product, setProduct] = useState<ScrapedProduct | null>(null);
-  const [template, setTemplate] = useState<object | null>(null);
+  const [template, setTemplate] = useState<Record<string, unknown> | null>(null);
   const [generatedContent, setGeneratedContent] = useState<object | null>(null);
   const [cloneData, setCloneData] = useState<{
     fullSection: string;

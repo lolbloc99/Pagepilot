@@ -7,7 +7,7 @@ import { ShopifyPush } from "./shopify-push";
 import { TemplatePreview } from "./template-preview";
 
 interface ResultViewProps {
-  template: object;
+  template: Record<string, unknown>;
   product: ScrapedProduct;
   content: object | null;
   onReset: () => void;
