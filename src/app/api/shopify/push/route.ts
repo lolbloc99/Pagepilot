@@ -27,13 +27,13 @@ export async function POST(req: NextRequest) {
 
     const result = await pushTemplate(domain, accessToken, themeId, key, template || {}, liquidContent);
 
+    const parts = [result.sectionKey, result.cssKey, result.key].filter(Boolean);
     return NextResponse.json({
       success: true,
       key: result.key,
       sectionKey: result.sectionKey,
-      message: result.sectionKey
-        ? `Section pushed to ${result.sectionKey} + template ${result.key}`
-        : `Template pushed to ${result.key}`,
+      cssKey: result.cssKey,
+      message: `Pushed: ${parts.join(" + ")}`,
     });
   } catch (error) {
     console.error("Shopify push error:", error);

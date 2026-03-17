@@ -90,13 +90,41 @@ export async function pushTemplate(
   templateKey: string,
   templateJson: object,
   liquidContent?: string
-): Promise<{ key: string; sectionKey?: string }> {
+): Promise<{ key: string; sectionKey?: string; cssKey?: string }> {
   const sectionName = templateKey.replace(/\.json$/, "").replace(/^product\./, "");
 
   // If there's liquid content, push the section file first
   if (liquidContent) {
+    let finalLiquid = liquidContent;
+    let cssKey: string | undefined;
+
+    // Extract <style> blocks if liquid exceeds 200KB (Shopify limit is 256KB)
+    const sizeKB = Buffer.byteLength(liquidContent, "utf8") / 1024;
+    if (sizeKB > 200) {
+      // Extract all <style> content
+      const styleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi;
+      const styles: string[] = [];
+      let match;
+      while ((match = styleRegex.exec(liquidContent)) !== null) {
+        styles.push(match[1]);
+      }
+
+      if (styles.length > 0) {
+        // Remove <style> blocks from liquid
+        finalLiquid = liquidContent.replace(styleRegex, "");
+
+        // Add CSS asset reference at the top of the section
+        const cssRef = `{{ '${sectionName}.css' | asset_url | stylesheet_tag }}`;
+        finalLiquid = cssRef + "\n" + finalLiquid;
+
+        // Push CSS as a separate asset
+        cssKey = `assets/${sectionName}.css`;
+        await pushAsset(domain, accessToken, themeId, cssKey, styles.join("\n"));
+      }
+    }
+
     const sectionKey = `sections/${sectionName}.liquid`;
-    await pushAsset(domain, accessToken, themeId, sectionKey, liquidContent);
+    await pushAsset(domain, accessToken, themeId, sectionKey, finalLiquid);
 
     // Then push the JSON template that references this section
     const jsonTemplate = {
@@ -112,7 +140,7 @@ export async function pushTemplate(
     const tplKey = `templates/${templateKey}`;
     await pushAsset(domain, accessToken, themeId, tplKey, JSON.stringify(jsonTemplate, null, 2));
 
-    return { key: tplKey, sectionKey };
+    return { key: tplKey, sectionKey, cssKey };
   }
 
   // No liquid — push as plain JSON template
