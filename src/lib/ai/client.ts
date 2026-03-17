@@ -72,7 +72,7 @@ function getPrimaryConfig(): ProviderConfig {
 }
 
 function getFallbackConfig(): ProviderConfig | null {
-  if (!FALLBACK_PROVIDER || !FALLBACK_API_KEY) return null;
+  if (!FALLBACK_PROVIDER || !FALLBACK_API_KEY || FALLBACK_PROVIDER === "none" || FALLBACK_API_KEY === "none") return null;
   return getProviderConfig(FALLBACK_PROVIDER, FALLBACK_API_KEY, FALLBACK_MODEL);
 }
 
