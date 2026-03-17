@@ -16,10 +16,6 @@ function richtext(text: string): string {
   return `<p>${text}</p>`;
 }
 
-function inlineRichtext(text: string): string {
-  return text || "";
-}
-
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
@@ -32,7 +28,11 @@ function escapeHtml(str: string): string {
 export function buildShopifyTemplate(content: GeneratedContent): object {
   resetIds();
 
-  // ── Main Product Section ────────────────────────────────────────────
+  // ── Main Product Section ──────────────────────────────────────────
+  // Matches EXACTLY the Shrine Pro product.json structure:
+  // title → rating_stars → price → variant_picker → quantity_selector →
+  // buy_buttons → shipping_checkpoints → sticky_atc → description → reviews → collapsible_tab
+
   const titleBlockId = blockId("title");
   const ratingStarsId = blockId("rating_stars");
   const priceId = blockId("price");
@@ -42,11 +42,7 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
   const shippingCheckpointsId = blockId("shipping_checkpoints");
   const stickyAtcId = blockId("sticky_atc");
   const descriptionId = blockId("description");
-  const paymentBadgesId = blockId("payment_badges");
   const reviewsBlockId = blockId("reviews");
-  const textBlockId = blockId("text");
-  const iconWithTextId = blockId("icon_with_text");
-  const emojiBenefitsId = blockId("emoji_benefits");
 
   const collapsibleTabIds = content.collapsibleTabs.map(() => blockId("collapsible_tab"));
 
@@ -64,15 +60,15 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
     [ratingStarsId]: {
       type: "rating_stars",
       settings: {
-        rating: 4.8,
+        rating: 4.4,
         star_color: "#ffcc00",
         bg_stars_style: "full",
         bg_star_color: "#ececec",
-        label: `<strong>4.8</strong> (${content.reviewCount} Reviews)`,
+        label: `(${content.reviewCount} Reviews)`,
         size: 16,
         alignment: "flex-start",
         scroll_id: "",
-        margin_top: 3,
+        margin_top: 0,
         margin_bottom: 9,
       },
     },
@@ -83,39 +79,6 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
         price_color: "accent-1",
         compare_price_color: "text",
         margin_top: 9,
-        margin_bottom: 9,
-      },
-    },
-    [textBlockId]: {
-      type: "text",
-      settings: {
-        text_1: content.iconTexts[0] || "",
-        text_2: content.iconTexts[1] || "",
-        text_3: content.iconTexts[2] || "",
-        icon_1: "check_circle",
-        filled_icon_1: false,
-        icon_2: "check_circle",
-        filled_icon_2: false,
-        icon_3: "check_circle",
-        filled_icon_3: false,
-        direction: "horizontal",
-        enable_bg: false,
-        margin_top: 9,
-        margin_bottom: 12,
-      },
-    },
-    [iconWithTextId]: {
-      type: "icon_with_text",
-      settings: {
-        layout: "horizontal",
-        icon_color: "accent-1",
-        icon_1: content.iconFeatures[0]?.icon || "favorite",
-        heading_1: content.iconFeatures[0]?.heading || "",
-        icon_2: content.iconFeatures[1]?.icon || "undo",
-        heading_2: content.iconFeatures[1]?.heading || "",
-        icon_3: content.iconFeatures[2]?.icon || "local_shipping",
-        heading_3: content.iconFeatures[2]?.heading || "",
-        margin_top: 12,
         margin_bottom: 15,
       },
     },
@@ -125,54 +88,68 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
         picker_types: "pills, dropdown, dropdown",
         custom_labels: "[name] - [selected]",
         swatches_size: "medium",
+        swatches_custom_colors: "disabled",
+        swatches_custom_colors_list: "#000000, #6D388B, #0000FF, #FFCC00",
+        full_width_dropdowns: false,
         breaks_style: "normal",
-        breaks_headline: "",
+        breaks_headline: "BUNDLE & SAVE",
         breaks_color_scheme: "accent-1",
-        breaks_badges: "",
-        breaks_labels: "",
-        breaks_benefits: "",
-        breaks_captions: "",
-        breaks_price_texts: "",
-        breaks_compare_price_texts: "",
-        margin_top: 9,
-        margin_bottom: 0,
+        breaks_badges: "[empty], Most popular, [empty]",
+        breaks_displayed_images: "variant_images",
+        breaks_custom_images: "",
+        breaks_image_width: 70,
+        breaks_space_images: true,
+        breaks_labels: "[name], [name], [name]",
+        breaks_benefits: "[empty], Free Shipping, Free Shipping",
+        breaks_captions: "Variant 1 caption, Variant 2 caption, Variant 3 caption",
+        breaks_price_texts: "[price], [price], [price]",
+        breaks_compare_price_texts: "[compare_price], [compare_price], [compare_price]",
+        margin_top: 15,
+        margin_bottom: 15,
       },
     },
     [quantitySelectorId]: {
       type: "quantity_selector",
-      disabled: true,
       settings: {
+        full_width_classic: false,
+        enable_quantity_discounts: false,
         style: "normal",
         headline: "BUNDLE & SAVE",
         preselected: "option_1",
         color_scheme: "accent-1",
         enable_variant_selectors: true,
+        enable_variant_selectors_on_quantity_of_1: false,
+        update_prices: false,
+        hide_pickers_overlay: true,
+        pickers_label: "",
+        image_width: 70,
+        space_images: true,
         option_1_quantity: 1,
         option_1_badge: "",
         option_1_label: "Buy [quantity]",
         option_1_benefit: "",
-        option_1_caption: "",
+        option_1_caption: "You save [amount_saved]",
         option_1_percentage_off_text: "0",
         option_1_fixed_amount_off: "0",
         option_1_price_text: "[price]",
         option_1_compare_price: "compare_price",
         option_1_compare_price_text: "[compare_price]",
         option_2_quantity: 2,
-        option_2_badge: "Most Popular",
+        option_2_badge: "",
         option_2_label: "Buy [quantity]",
-        option_2_benefit: "Save 10%",
-        option_2_caption: "",
-        option_2_percentage_off_text: "10",
+        option_2_benefit: "",
+        option_2_caption: "You save [amount_saved]",
+        option_2_percentage_off_text: "0",
         option_2_fixed_amount_off: "0",
         option_2_price_text: "[price]",
         option_2_compare_price: "compare_price",
         option_2_compare_price_text: "[compare_price]",
         option_3_quantity: 3,
-        option_3_badge: "Best Value",
+        option_3_badge: "",
         option_3_label: "Buy [quantity]",
-        option_3_benefit: "Save 15%",
-        option_3_caption: "",
-        option_3_percentage_off_text: "15",
+        option_3_benefit: "",
+        option_3_caption: "You save [amount_saved]",
+        option_3_percentage_off_text: "0",
         option_3_fixed_amount_off: "0",
         option_3_price_text: "[price]",
         option_3_compare_price: "compare_price",
@@ -180,15 +157,15 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
         option_4_quantity: 4,
         option_4_badge: "",
         option_4_label: "Buy [quantity]",
-        option_4_benefit: "Save 20%",
-        option_4_caption: "",
-        option_4_percentage_off_text: "20",
+        option_4_benefit: "",
+        option_4_caption: "You save [amount_saved]",
+        option_4_percentage_off_text: "0",
         option_4_fixed_amount_off: "0",
         option_4_price_text: "[price]",
         option_4_compare_price: "compare_price",
         option_4_compare_price_text: "[compare_price]",
-        margin_top: 12,
-        margin_bottom: 12,
+        margin_top: 15,
+        margin_bottom: 15,
       },
     },
     [buyButtonsId]: {
@@ -198,47 +175,49 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
         skip_cart: false,
         uppercase_text: true,
         icon_scale: 120,
+        icon_spacing: 10,
         display_price: false,
         enable_custom_color: false,
-        margin_top: 12,
-        margin_bottom: 0,
+        custom_color: "#53af01",
+        enable_secondary_btn: false,
+        secondary_btn_label: "Buy It Now",
+        secondary_btn_enable_custom_color: false,
+        secondary_btn_custom_color: "#dd1d1d",
+        margin_top: 24,
+        margin_bottom: 24,
       },
     },
     [shippingCheckpointsId]: {
       type: "shipping_checkpoints",
       settings: {
-        icon_1: "inventory_2",
-        top_text_1: "Order Placed",
-        bottom_text_1: "Today",
+        icon_1: "add_shopping_cart",
+        filled_icon_1: false,
+        top_text_1: "<strong>[start_date]</strong>",
+        bottom_text_1: "Ordered",
         min_days_1: 0,
         max_days_1: 0,
         icon_2: "local_shipping",
-        top_text_2: "Shipped",
-        bottom_text_2: "",
+        filled_icon_2: false,
+        top_text_2: "<strong>[start_date] - [end_date]</strong>",
+        bottom_text_2: "Order Ready",
         min_days_2: 1,
-        max_days_2: 3,
-        icon_3: "flight",
-        top_text_3: "In Transit",
-        bottom_text_3: "",
-        min_days_3: 7,
-        max_days_3: 10,
-        icon_4: "home",
-        top_text_4: "Delivered",
+        max_days_2: 2,
+        icon_3: "redeem",
+        filled_icon_3: false,
+        top_text_3: "<strong>[start_date] - [end_date]</strong>",
+        bottom_text_3: "Delivered",
+        min_days_3: 10,
+        max_days_3: 12,
+        icon_4: "",
+        filled_icon_4: false,
+        top_text_4: "",
         bottom_text_4: "",
-        min_days_4: 10,
-        max_days_4: 15,
         date_format: "mm_dd",
+        days_labels: "Mon, Tue, Wed, Thu, Fri, Sat, Sun",
+        months_labels: "Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec",
         color_scheme: "inverse",
-        margin_top: 15,
-        margin_bottom: 15,
-      },
-    },
-    [paymentBadgesId]: {
-      type: "payment_badges",
-      settings: {
-        enabled_payment_types: "visa,mastercard,amex,paypal,apple_pay,google_pay",
-        margin_top: 0,
-        margin_bottom: 9,
+        margin_top: 24,
+        margin_bottom: 24,
       },
     },
     [stickyAtcId]: {
@@ -246,52 +225,80 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
       settings: {
         function: "add_to_cart",
         display_when: "after_scroll",
-        button_label: "",
+        button_label: "Add to cart",
+        enable_custom_btn_color: false,
+        custom_btn_color: "#dd1d1d",
         color_scheme: "background-1",
+        star_color: "#ffcc00",
+        stars_label: `(${content.reviewCount} Reviews)`,
+        picker_type: "combined",
+        desktop_show_image: true,
+        desktop_show_title: true,
+        desktop_rating_stars: false,
+        desktop_show_price: true,
+        desktop_show_sale_badge: true,
+        desktop_variant_picker: true,
+        desktop_full_button_width: false,
+        desktop_show_price_in_button: false,
+        desktop_transparent_bg: false,
+        mobile_show_image: false,
+        mobile_show_title: true,
+        mobile_rating_stars: false,
+        mobile_show_price: true,
+        mobile_show_sale_badge: false,
+        mobile_variant_picker: false,
+        mobile_full_button_width: false,
+        mobile_show_price_in_button: false,
+        mobile_transparent_bg: false,
       },
     },
     [descriptionId]: {
       type: "description",
       settings: {
         margin_top: 24,
-        margin_bottom: 15,
-      },
-    },
-    [emojiBenefitsId]: {
-      type: "emoji_benefits",
-      settings: {
-        benefits: richtext(
-          content.iconFeatures
-            .map((f) => `\u2705 ${escapeHtml(f.heading)}`)
-            .join("<br/>")
-        ),
-        margin_top: 0,
-        margin_bottom: 15,
+        margin_bottom: 24,
       },
     },
     [reviewsBlockId]: {
       type: "reviews",
       settings: {
         color_scheme: "background-1",
+        show_custom_bg: false,
+        custom_bg_color: "#f2f2f2",
         corner_radius: 12,
+        border_width: 0,
+        border_color: "#b7b7b7",
+        avatar_alignment: "top",
+        avatar_corner_radius: 40,
         star_color: "#ffcc00",
+        stars_translate: 0,
         checkmark_color: "#6d388b",
+        checkmark_icon_color: "#ffffff",
         slider_type: "slide",
+        autoplay: false,
+        autoplay_speed: 5,
+        display_arrows: false,
         display_dots: true,
         author_1: content.reviews[0]
-          ? `<em><strong>${escapeHtml(content.reviews[0].author)}</strong></em>`
-          : "",
-        text_1: content.reviews[0] ? richtext(escapeHtml(content.reviews[0].text)) : "",
+          ? `<em>${escapeHtml(content.reviews[0].author)}</em> [stars]`
+          : "<em>Author</em> [stars]",
+        text_1: content.reviews[0]
+          ? richtext(escapeHtml(content.reviews[0].text))
+          : "<p>Share positive thoughts and feedback from your customer.</p>",
         author_2: content.reviews[1]
-          ? `<em><strong>${escapeHtml(content.reviews[1].author)}</strong></em>`
-          : "",
-        text_2: content.reviews[1] ? richtext(escapeHtml(content.reviews[1].text)) : "",
+          ? `<em>${escapeHtml(content.reviews[1].author)}</em> [stars]`
+          : "<em>Author</em> [stars]",
+        text_2: content.reviews[1]
+          ? richtext(escapeHtml(content.reviews[1].text))
+          : "<p>Share positive thoughts and feedback from your customer.</p>",
         author_3: content.reviews[2]
-          ? `<em><strong>${escapeHtml(content.reviews[2].author)}</strong></em>`
-          : "",
-        text_3: content.reviews[2] ? richtext(escapeHtml(content.reviews[2].text)) : "",
-        margin_top: 15,
-        margin_bottom: 15,
+          ? `<em>${escapeHtml(content.reviews[2].author)}</em> [stars]`
+          : "<em>Author</em> [stars]",
+        text_3: content.reviews[2]
+          ? richtext(escapeHtml(content.reviews[2].text))
+          : "<p>Share positive thoughts and feedback from your customer.</p>",
+        margin_top: 24,
+        margin_bottom: 24,
       },
     },
     ...Object.fromEntries(
@@ -303,11 +310,13 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
             heading: content.collapsibleTabs[i].heading,
             heading_size: "medium",
             icon: content.collapsibleTabs[i].icon || "check_box",
+            filled_icon: false,
             collapse_icon: "carret",
             display_top_border: true,
             open: false,
             content: richtext(content.collapsibleTabs[i].content),
-            margin_top: 0,
+            page: "",
+            margin_top: 24,
             margin_bottom: 0,
           },
         },
@@ -319,251 +328,346 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
     titleBlockId,
     ratingStarsId,
     priceId,
-    textBlockId,
-    iconWithTextId,
     variantPickerId,
     quantitySelectorId,
     buyButtonsId,
     shippingCheckpointsId,
-    paymentBadgesId,
     stickyAtcId,
     descriptionId,
-    emojiBenefitsId,
     reviewsBlockId,
     ...collapsibleTabIds,
   ];
 
-  // ── Rich Text (Hero subtitle / hook) ────────────────────────────────
-  const richTextSectionId = blockId("rich_text_section");
-  const rtHeadingId = blockId("rt_heading");
-  const rtTextId = blockId("rt_text");
+  // ── Custom Columns Section ──────────────────────────────────────────
+  const customColumnsId = blockId("custom_columns");
+  const ccBlocks: Record<string, object> = {};
+  const ccBlockOrder: string[] = [];
 
-  const richTextSection = {
-    type: "rich-text",
-    blocks: {
-      [rtHeadingId]: {
-        type: "heading",
-        settings: {
-          title: `<strong>${escapeHtml(content.title)}</strong>`,
-          title_highlight_color: "#6d388b",
-          heading_size: "h1",
-        },
-      },
-      [rtTextId]: {
-        type: "text",
-        settings: {
-          text: richtext(escapeHtml(content.subtitle)),
-        },
-      },
-    },
-    block_order: [rtHeadingId, rtTextId],
+  // Heading block (full width col_1)
+  const ccHeadingId = blockId("cc_heading");
+  ccBlocks[ccHeadingId] = {
+    type: "heading",
     settings: {
-      desktop_content_position: "center",
-      content_alignment: "center",
+      column: "col_1",
+      visibility: "always-display",
+      heading: content.title || "Custom columns",
+      title_highlight_color: "#6d388b",
+      heading_size: "h1",
+      alignment: "center",
+      mobile_alignment: "mobile-center",
+      margin_top: 20,
+      margin_bottom: 20,
+    },
+  };
+  ccBlockOrder.push(ccHeadingId);
+
+  // Richtext block (full width col_1)
+  const ccRichtextId = blockId("cc_richtext");
+  ccBlocks[ccRichtextId] = {
+    type: "richtext",
+    settings: {
+      column: "col_1",
+      visibility: "always-display",
+      text: richtext(escapeHtml(content.subtitle)),
+      text_style: "body",
+      alignment: "center",
+      mobile_alignment: "mobile-center",
+      margin_top: 20,
+      margin_bottom: 20,
+    },
+  };
+  ccBlockOrder.push(ccRichtextId);
+
+  // Features as icon_with_text blocks in col_2 and col_4
+  const features = content.customColumnFeatures.length > 0
+    ? content.customColumnFeatures
+    : content.iconFeatures.map((f) => ({ title: f.heading, text: f.heading }));
+
+  const half = Math.ceil(features.length / 2);
+  const leftFeatures = features.slice(0, half);
+  const rightFeatures = features.slice(half);
+
+  leftFeatures.forEach((f, i) => {
+    const id = blockId("cc_icon");
+    ccBlocks[id] = {
+      type: "icon_with_text",
+      settings: {
+        column: "col_2",
+        visibility: "always-display",
+        icon: "check_circle",
+        filled_icon: false,
+        icon_size: "m",
+        icon_position: "next-to-title",
+        icon_color: "accent-1",
+        icon_heading_size: "h3",
+        icon_text_alignment: "left",
+        title: escapeHtml(f.title),
+        text: richtext(escapeHtml(f.text || "")),
+        margin_top: 20,
+        margin_bottom: i === leftFeatures.length - 1 ? 20 : 30,
+      },
+    };
+    ccBlockOrder.push(id);
+  });
+
+  // Image placeholder in col_3
+  const ccImageId = blockId("cc_image");
+  ccBlocks[ccImageId] = {
+    type: "image",
+    settings: {
+      column: "col_3",
+      visibility: "always-display",
+      width: 100,
+      alignment: "center",
+      mobile_alignment: "center",
+      border_radius: 0,
+      margin_top: 20,
+      margin_bottom: 20,
+    },
+  };
+  ccBlockOrder.push(ccImageId);
+
+  rightFeatures.forEach((f, i) => {
+    const id = blockId("cc_icon");
+    ccBlocks[id] = {
+      type: "icon_with_text",
+      settings: {
+        column: "col_4",
+        visibility: "always-display",
+        icon: "check_circle",
+        filled_icon: false,
+        icon_size: "m",
+        icon_position: "next-to-title",
+        icon_color: "accent-1",
+        icon_heading_size: "h3",
+        icon_text_alignment: "left",
+        title: escapeHtml(f.title),
+        text: richtext(escapeHtml(f.text || "")),
+        margin_top: 20,
+        margin_bottom: i === rightFeatures.length - 1 ? 20 : 30,
+      },
+    };
+    ccBlockOrder.push(id);
+  });
+
+  const customColumnsSection = {
+    type: "custom-columns",
+    blocks: ccBlocks,
+    block_order: ccBlockOrder,
+    settings: {
+      display_id: false,
+      visibility: "always-display",
       color_scheme: "background-1",
-      padding_top: 40,
-      padding_bottom: 52,
+      columns_count: 4,
+      column_gap_desktop: 40,
+      row_gap_desktop: 40,
+      desktop_vertical_alignment: "center",
+      column_gap_mobile: 20,
+      row_gap_mobile: 30,
+      mobile_vertical_alignment: "flex-start",
+      col_1_desktop_width: 12,
+      col_1_mobile_width: 4,
+      col_1_visibility: "always-display",
+      col_2_desktop_width: 4,
+      col_2_mobile_width: 4,
+      col_2_visibility: "always-display",
+      col_3_desktop_width: 4,
+      col_3_mobile_width: 4,
+      col_3_visibility: "always-display",
+      col_4_desktop_width: 4,
+      col_4_mobile_width: 4,
+      col_4_visibility: "always-display",
+      col_5_desktop_width: 3,
+      col_5_mobile_width: 4,
+      col_5_visibility: "always-display",
+      col_6_desktop_width: 3,
+      col_6_mobile_width: 4,
+      col_6_visibility: "always-display",
+      padding_top: 36,
+      padding_bottom: 36,
+      custom_colors_background: "#ffffff",
+      custom_gradient_background: "",
+      custom_colors_text: "#2e2a39",
+      custom_colors_solid_button_background: "#dd1d1d",
+      custom_colors_solid_button_text: "#ffffff",
+      custom_colors_outline_button: "#dd1d1d",
     },
   };
 
-  // ── Section Divider 1 ───────────────────────────────────────────────
-  const divider1Id = blockId("divider_1");
-  const divider1 = {
-    type: "section-divider",
+  // ── Image Slider Section ──────────────────────────────────────────
+  const imageSliderId = blockId("image_slider");
+  const slideIds = [1, 2, 3, 4].map(() => blockId("slide"));
+  const imageSliderBlocks = Object.fromEntries(
+    slideIds.map((id) => [
+      id,
+      {
+        type: "image_slide",
+        settings: {
+          link: "",
+          description: "",
+          desc_alignment: "center",
+          desc_color_scheme: "background-2",
+        },
+      },
+    ])
+  );
+
+  const imageSliderSection = {
+    type: "image-slider",
+    blocks: imageSliderBlocks,
+    block_order: slideIds,
     settings: {
-      shape: "waves_3",
-      flip_horizontal: false,
-      flip_vertical: false,
-      shape_color: "accent-1",
-      background_color: "background-1",
+      display_id: false,
+      visibility: "always-display",
+      title: "Image/Video Slider",
+      title_highlight_color: "#6d388b",
+      heading_size: "h1",
+      color_scheme: "background-1",
+      type: "slide",
+      drag: "enabled",
+      autoplay: false,
+      autoplay_speed: 5,
+      center_mode: false,
+      arrows_color_scheme: "inverse",
+      transparent_arrows: false,
+      dots_color_scheme: "inverse",
+      desktop_full_page: false,
+      desktop_border_radius: 0,
+      slides_desktop: 3,
+      per_move_desktop: 1,
+      desktop_spacing: 28,
+      desktop_side_padding: 0,
+      desktop_padding_calc: true,
+      desktop_adaptive_height: false,
+      desktop_dots_position: "under",
+      desktop_arrows_position: "sides",
+      mobile_full_page: false,
+      mobile_border_radius: 0,
+      slides_mobile: 2,
+      per_move_mobile: 1,
+      mobile_spacing: 12,
+      mobile_side_padding: 0,
+      mobile_padding_calc: true,
+      mobile_adaptive_height: false,
+      mobile_dots_position: "under",
+      mobile_arrows_position: "sides",
+      padding_top: 36,
+      padding_bottom: 36,
+      custom_colors_background: "#ffffff",
+      custom_gradient_background: "",
+      custom_colors_text: "#121212",
     },
   };
 
-  // ── Icons With Content (Key Features) ───────────────────────────────
+  // ── Icons With Content Section ──────────────────────────────────────
   const iconsContentId = blockId("icons_content");
-  const iconsHeadingBlockId = blockId("icons_heading");
-  const iconsTextBlockId = blockId("icons_text");
   const iconBlocks: Record<string, object> = {};
   const iconBlockOrder: string[] = [];
 
-  // Heading block
-  iconBlocks[iconsHeadingBlockId] = {
-    type: "heading",
-    settings: {
-      title: "<strong>Why You'll Love It</strong>",
-      title_highlight_color: "#6d388b",
-      heading_size: "h1",
-    },
-  };
-  iconBlockOrder.push(iconsHeadingBlockId);
+  // Icon blocks
+  const iconFeatures = content.customColumnFeatures.length > 0
+    ? content.customColumnFeatures.slice(0, 3)
+    : content.iconFeatures.slice(0, 3).map((f) => ({ title: f.heading, text: f.heading }));
 
-  // Caption / intro text
-  iconBlocks[iconsTextBlockId] = {
-    type: "text",
-    settings: {
-      text: richtext(escapeHtml(content.subtitle)),
-    },
-  };
-  iconBlockOrder.push(iconsTextBlockId);
-
-  // Icon blocks from customColumnFeatures (reuse as icon_with_text features)
-  const featureSource =
-    content.customColumnFeatures.length > 0
-      ? content.customColumnFeatures
-      : content.iconFeatures.map((f) => ({ title: f.heading, text: "" }));
-
-  featureSource.forEach((feature) => {
-    const iconId = blockId("icon");
-    iconBlocks[iconId] = {
+  iconFeatures.forEach((f) => {
+    const id = blockId("icon");
+    iconBlocks[id] = {
       type: "icon",
       settings: {
         icon: "check_circle",
         filled_icon: false,
-        title: escapeHtml(feature.title),
-        text: richtext(escapeHtml(feature.text || "")),
+        title: escapeHtml(f.title),
+        text: richtext(escapeHtml(f.text || "")),
       },
     };
-    iconBlockOrder.push(iconId);
+    iconBlockOrder.push(id);
   });
+
+  // Heading block
+  const iconsHeadingId = blockId("icons_heading");
+  iconBlocks[iconsHeadingId] = {
+    type: "heading",
+    settings: {
+      title: escapeHtml(content.title || "Content heading"),
+      title_highlight_color: "#6d388b",
+      heading_size: "h1",
+    },
+  };
+  iconBlockOrder.push(iconsHeadingId);
+
+  // Text block
+  const iconsTextId = blockId("icons_text");
+  iconBlocks[iconsTextId] = {
+    type: "text",
+    settings: {
+      text: richtext(escapeHtml(content.subtitle)),
+      text_style: "body",
+    },
+  };
+  iconBlockOrder.push(iconsTextId);
+
+  // Button block
+  const iconsButtonId = blockId("icons_button");
+  iconBlocks[iconsButtonId] = {
+    type: "button",
+    settings: {
+      button_label: "Button label",
+      button_link: "",
+      button_style_secondary: false,
+    },
+  };
+  iconBlockOrder.push(iconsButtonId);
 
   const iconsWithContentSection = {
     type: "icons-with-content",
     blocks: iconBlocks,
     block_order: iconBlockOrder,
     settings: {
+      display_id: false,
+      visibility: "always-display",
+      color_scheme: "background-1",
       icon_size: "m",
       icon_position: "next-to-title",
       icon_color: "accent-1",
       icon_heading_size: "h3",
       icon_text_alignment: "left",
-      icons_desktop_layout: "2-column",
+      icons_desktop_layout: "1-column",
+      icons_mobile_layout: "1-column",
+      desktop_content_alignment: "left",
       layout: "image_first",
-      color_scheme: "background-1",
+      mobile_layout: "text_first",
+      hide_content_on_mobile: false,
       padding_top: 36,
       padding_bottom: 36,
+      custom_colors_background: "#ffffff",
+      custom_gradient_background: "",
+      custom_colors_text: "#2e2a39",
+      custom_colors_solid_button_background: "#dd1d1d",
+      custom_colors_solid_button_text: "#ffffff",
+      custom_colors_outline_button: "#dd1d1d",
     },
   };
 
-  // ── Section Divider 2 ───────────────────────────────────────────────
-  const divider2Id = blockId("divider_2");
-  const divider2 = {
-    type: "section-divider",
-    settings: {
-      shape: "diagonal_1",
-      flip_horizontal: false,
-      flip_vertical: true,
-      shape_color: "accent-1",
-      background_color: "background-1",
-    },
-  };
-
-  // ── Comparison Table ────────────────────────────────────────────────
-  const comparisonId = blockId("comparison");
-  const compRowIds = content.comparisonTable.benefits.map(() => blockId("comp_row"));
-  const comparisonBlocks = Object.fromEntries(
-    compRowIds.map((id, i) => [
-      id,
-      {
-        type: "row",
-        settings: {
-          benefit: `<strong>${escapeHtml(content.comparisonTable.benefits[i] || "Benefit")}</strong>`,
-          us: true,
-          others: false,
-        },
-      },
-    ])
-  );
-
-  const comparisonTableSection = {
-    type: "comparison-table",
-    blocks: comparisonBlocks,
-    block_order: compRowIds,
-    settings: {
-      title: inlineRichtext(content.comparisonTable.title || "Why Choose Us?"),
-      title_highlight_color: "#6D388B",
-      heading_size: "h1",
-      layout: "table_second",
-      style: "classic",
-      corner_radius: 20,
-      number_of_competitors: 1,
-      us_label: "[shop_name]",
-      others_label: "Others",
-      checkmark_style: "regular",
-      checkmark_color: "#53AF01",
-      x_color: "#121212",
-      highlighted_color_scheme: "accent-1",
-      color_scheme: "background-1",
-      padding_top: 36,
-      padding_bottom: 36,
-    },
-  };
-
-  // ── Image With Text ─────────────────────────────────────────────────
-  const imageWithTextSections: Record<string, object> = {};
-  const imageWithTextOrder: string[] = [];
-
-  content.imageWithText.forEach((section, i) => {
-    const sectionId = blockId("iwt_section");
-    const headId = blockId("iwt_heading");
-    const txtId = blockId("iwt_text");
-
-    imageWithTextSections[sectionId] = {
-      type: "image-with-text",
-      blocks: {
-        [headId]: {
-          type: "heading",
-          settings: {
-            title: escapeHtml(section.heading),
-            title_highlight_color: "#6d388b",
-            heading_size: "h2",
-          },
-        },
-        [txtId]: {
-          type: "text",
-          settings: {
-            text: richtext(escapeHtml(section.body)),
-          },
-        },
-      },
-      block_order: [headId, txtId],
-      settings: {
-        height: "adapt",
-        layout: i % 2 === 0 ? "image_first" : "text_first",
-        desktop_content_position: "top",
-        desktop_content_alignment: "left",
-        color_scheme: "background-1",
-        padding_top: 36,
-        padding_bottom: 36,
-      },
-    };
-    imageWithTextOrder.push(sectionId);
-  });
-
-  // ── Section Divider 3 ───────────────────────────────────────────────
-  const divider3Id = blockId("divider_3");
-  const divider3 = {
-    type: "section-divider",
-    settings: {
-      shape: "curved_1",
-      flip_horizontal: false,
-      flip_vertical: false,
-      shape_color: "accent-1",
-      background_color: "background-1",
-    },
-  };
-
-  // ── Testimonials ────────────────────────────────────────────────────
+  // ── Testimonials Section ──────────────────────────────────────────
   const testimonialsId = blockId("testimonials");
-  const testimonialColumnIds = content.reviews.map(() => blockId("testimonial_col"));
+  const testimonialReviews = content.reviews.length > 0
+    ? content.reviews.slice(0, 3)
+    : [
+        { author: "Author", text: "Share positive thoughts and feedback from your customer..", title: "Heading" },
+        { author: "Author", text: "Share positive thoughts and feedback from your customer..", title: "Heading" },
+        { author: "Author", text: "Share positive thoughts and feedback from your customer..", title: "Heading" },
+      ];
+
+  const testimonialColumnIds = testimonialReviews.map(() => blockId("testimonial_col"));
   const testimonialBlocks = Object.fromEntries(
     testimonialColumnIds.map((id, i) => [
       id,
       {
         type: "column",
         settings: {
-          title: content.reviews[i]?.title || "Amazing product!",
-          text: richtext(escapeHtml(content.reviews[i]?.text || "")),
-          author: `<strong>${escapeHtml(content.reviews[i]?.author || "Verified Customer")}</strong>`,
+          title: testimonialReviews[i]?.title || "Heading",
+          text: richtext(escapeHtml(testimonialReviews[i]?.text || "")),
+          author: `<em><strong>${escapeHtml(testimonialReviews[i]?.author || "Author")}</strong></em>`,
         },
       },
     ])
@@ -574,85 +678,78 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
     blocks: testimonialBlocks,
     block_order: testimonialColumnIds,
     settings: {
-      title: `<strong>What Our Customers Say</strong>`,
+      display_id: false,
+      visibility: "always-display",
+      title: "Testimonials",
       title_highlight_color: "#6d388b",
       heading_size: "h1",
+      text: "",
+      color_scheme: "background-1",
+      image_width: "full",
+      image_ratio: "square",
+      column_alignment: "center",
       show_stars: true,
       stars_color: "#ffd700",
       show_quotes: true,
+      quotes_color_scheme: "accent-2",
       cards_color_scheme: "bg-overlay",
-      columns_desktop: Math.min(content.reviews.length, 3),
+      type: "slide",
+      autoplay: false,
+      autoplay_speed: 5,
+      arrows_color_scheme: "inverse",
+      transparent_arrows: true,
+      dots_color_scheme: "inverse",
+      desktop_full_page: false,
+      columns_desktop: 3,
       slider_desktop: false,
-      color_scheme: "background-1",
+      per_move_desktop: 1,
+      desktop_spacing: 40,
+      desktop_side_padding: 0,
+      desktop_padding_calc: true,
+      desktop_adaptive_height: false,
+      desktop_dots_position: "under",
+      desktop_arrows_position: "sides",
+      slider_mobile: true,
+      enable_mobile_preview: false,
+      mobile_adaptive_height: false,
+      mobile_dots_position: "under",
+      mobile_arrows_position: "under",
       padding_top: 36,
       padding_bottom: 36,
+      custom_colors_background: "#ffffff",
+      custom_gradient_background: "",
+      custom_colors_text: "#2e2a39",
+      custom_cards_colors_background: "#f3f3f3",
+      custom_cards_gradient_background: "",
+      custom_cards_colors_text: "#2e2a39",
     },
   };
 
-  // ── Section Divider 4 ───────────────────────────────────────────────
-  const divider4Id = blockId("divider_4");
-  const divider4 = {
+  // ── Section Divider ────────────────────────────────────────────────
+  const dividerId = blockId("divider");
+  const sectionDivider = {
     type: "section-divider",
     settings: {
+      visibility: "always-display",
       shape: "waves_3",
-      flip_horizontal: true,
+      flip_horizontal: false,
       flip_vertical: false,
       shape_color: "accent-1",
+      custom_shape_color: "#dd1d1d",
       background_color: "background-1",
+      custom_background_color: "#ffffff",
+      padding_top: 0,
+      padding_bottom: 0,
     },
   };
 
-  // ── FAQ Section (sp-faq) ────────────────────────────────────────────
-  const faqSectionId = blockId("faq");
-  // Build FAQ from collapsibleTabs content
-  const faqItems = content.collapsibleTabs.length > 0
-    ? content.collapsibleTabs
-    : [
-        { heading: "How long does shipping take?", content: "Orders typically arrive within 7-15 business days.", icon: "" },
-        { heading: "What is your return policy?", content: "We offer a 30-day money-back guarantee on all orders.", icon: "" },
-        { heading: "Is this product high quality?", content: "Yes, all our products are carefully tested and inspected.", icon: "" },
-        { heading: "Do you offer customer support?", content: "Our team is available 24/7 to assist you.", icon: "" },
-        { heading: "Can I track my order?", content: "Yes, you will receive a tracking number once your order ships.", icon: "" },
-      ];
-
-  const faqQuestionIds = faqItems.map(() => blockId("faq_q"));
-  const faqBlocks = Object.fromEntries(
-    faqQuestionIds.map((id, i) => [
-      id,
-      {
-        type: "question",
-        settings: {
-          question: `<b>${escapeHtml(faqItems[i].heading)}</b>`,
-          answer: richtext(escapeHtml(faqItems[i].content)),
-        },
-      },
-    ])
-  );
-
-  const faqSection = {
-    type: "sp-faq",
-    blocks: faqBlocks,
-    block_order: faqQuestionIds,
-    settings: {
-      headline: "<strong>Frequently Asked Questions</strong>",
-      text: "",
-      question_text_size: 25,
-      question_color: "#111111",
-      answer_color: "#555555",
-      text_alignment: "center",
-      container_max_width: 1000,
-      color_scheme: "background-1",
-      padding_top: 36,
-      padding_bottom: 36,
-    },
-  };
-
-  // ── Related Products (disabled) ─────────────────────────────────────
-  const relatedProductsId = blockId("related");
+  // ── Related Products (disabled) ───────────────────────────────────
+  const relatedProductsId = "related-products";
   const relatedProducts = {
     type: "related-products",
     disabled: true,
     settings: {
+      display_id: false,
       title: "You may also like",
       title_highlight_color: "#6d388b",
       heading_size: "h2",
@@ -663,85 +760,86 @@ export function buildShopifyTemplate(content: GeneratedContent): object {
       show_secondary_image: false,
       show_vendor: false,
       show_rating: false,
-      enable_quick_add: false,
       columns_mobile: "2",
       padding_top: 36,
       padding_bottom: 24,
     },
   };
 
-  // ── Assemble Template ───────────────────────────────────────────────
-  const sections: Record<string, object> = {};
-  const order: string[] = [];
+  // ── Assemble Template ─────────────────────────────────────────────
+  // Exact order from Shrine Pro product.json:
+  // main → related-products → custom-columns → image-slider → icons-with-content → testimonials → section-divider
 
-  // 1. Main product
-  const mainId = "main";
-  sections[mainId] = {
-    type: "main-product",
-    blocks: mainProductBlocks,
-    block_order: mainProductBlockOrder,
-    settings: {
-      enable_sticky_info: true,
-      media_size: "medium",
-      media_position: "left",
-      gallery_layout: "thumbnail_slider",
-      media_fit: "contain",
-      trust_badge_position: "top-right",
-      padding_top: 36,
-      padding_bottom: 36,
+  const sections: Record<string, object> = {
+    main: {
+      type: "main-product",
+      blocks: mainProductBlocks,
+      block_order: mainProductBlockOrder,
+      custom_css: [],
+      settings: {
+        display_id: false,
+        enable_sticky_info: true,
+        display_variant_image_first: false,
+        disable_prepend: true,
+        hide_variants: false,
+        variant_image_filtering: "none",
+        image_zoom: "none",
+        arrows_color_scheme: "inverse",
+        transparent_arrows: false,
+        dots_color_scheme: "inverse",
+        video_player: "play_btn",
+        enable_video_looping: false,
+        autoplay_videos_pause_btn: false,
+        video_sound_btn: false,
+        video_timeline: false,
+        play_btn_color_scheme: "accent-1",
+        sound_btn_color_scheme: "inverse",
+        timeline_color: "accent-1",
+        media_size: "medium",
+        media_position: "left",
+        gallery_layout: "thumbnail_slider",
+        desktop_thumbnails_count: 5,
+        constrain_to_viewport: true,
+        media_fit: "contain",
+        desktop_arrows_position: "hidden",
+        mobile_media_corner_radius: 0,
+        mobile_spacing_pixels: 0,
+        mobile_arrows_position: "sides",
+        mobile_pagination: "dots_overlay",
+        mobile_thumbnails: "hide",
+        mobile_thumbnails_count: 5,
+        mobile_scroll_padding_percentage: 0,
+        mobile_scroll_padding_pixels: 14,
+        enable_mobile_outher_spacing: false,
+        mobile_slides_container_width: 100,
+        mobile_slides_inner_width: 100,
+        trust_badge_position: "top-right",
+        trust_badge_size: "medium",
+        mobile_padding_top: 0,
+        mobile_padding_bottom: 16,
+        desktop_padding_top: 36,
+        desktop_padding_bottom: 36,
+      },
     },
+    [relatedProductsId]: relatedProducts,
+    [customColumnsId]: customColumnsSection,
+    [imageSliderId]: imageSliderSection,
+    [iconsContentId]: iconsWithContentSection,
+    [testimonialsId]: testimonialsSection,
+    [dividerId]: sectionDivider,
   };
-  order.push(mainId);
 
-  // 2. Rich text hero
-  sections[richTextSectionId] = richTextSection;
-  order.push(richTextSectionId);
-
-  // 3. Divider
-  sections[divider1Id] = divider1;
-  order.push(divider1Id);
-
-  // 4. Icons with content
-  sections[iconsContentId] = iconsWithContentSection;
-  order.push(iconsContentId);
-
-  // 5. Divider
-  sections[divider2Id] = divider2;
-  order.push(divider2Id);
-
-  // 6. Comparison table
-  sections[comparisonId] = comparisonTableSection;
-  order.push(comparisonId);
-
-  // 7. Image with text sections
-  for (let i = 0; i < imageWithTextOrder.length; i++) {
-    const id = imageWithTextOrder[i];
-    sections[id] = imageWithTextSections[id];
-    order.push(id);
-  }
-
-  // 8. Divider
-  sections[divider3Id] = divider3;
-  order.push(divider3Id);
-
-  // 9. Testimonials
-  sections[testimonialsId] = testimonialsSection;
-  order.push(testimonialsId);
-
-  // 10. Divider
-  sections[divider4Id] = divider4;
-  order.push(divider4Id);
-
-  // 11. FAQ
-  sections[faqSectionId] = faqSection;
-  order.push(faqSectionId);
-
-  // 12. Related products (disabled)
-  sections[relatedProductsId] = relatedProducts;
-  order.push(relatedProductsId);
+  const order = [
+    "main",
+    relatedProductsId,
+    customColumnsId,
+    imageSliderId,
+    iconsContentId,
+    testimonialsId,
+    dividerId,
+  ];
 
   return {
-    layout: "theme",
     sections,
     order,
   };
