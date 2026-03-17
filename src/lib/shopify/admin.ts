@@ -98,29 +98,40 @@ export async function pushTemplate(
     let finalLiquid = liquidContent;
     let cssKey: string | undefined;
 
-    // Extract <style> blocks if liquid exceeds 200KB (Shopify limit is 256KB)
-    const sizeKB = Buffer.byteLength(liquidContent, "utf8") / 1024;
-    if (sizeKB > 200) {
-      // Extract all <style> content
-      const styleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi;
-      const styles: string[] = [];
-      let match;
-      while ((match = styleRegex.exec(liquidContent)) !== null) {
-        styles.push(match[1]);
+    // Always extract <style> blocks into a separate CSS asset
+    // This keeps section files small and CSS cacheable
+    const styleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi;
+    const styles: string[] = [];
+    let match;
+    while ((match = styleRegex.exec(liquidContent)) !== null) {
+      styles.push(match[1]);
+    }
+
+    if (styles.length > 0) {
+      const allCss = styles.join("\n");
+
+      // Remove <style> blocks from liquid
+      finalLiquid = liquidContent.replace(styleRegex, "");
+
+      // Add CSS asset reference at the top of the section
+      const cssRef = `{{ '${sectionName}.css' | asset_url | stylesheet_tag }}`;
+      finalLiquid = cssRef + "\n" + finalLiquid;
+
+      // If CSS > 256KB, truncate to most important rules (keep class selectors, remove comments/empty)
+      let cssToPush = allCss;
+      if (Buffer.byteLength(cssToPush, "utf8") > 250000) {
+        cssToPush = cssToPush
+          .replace(/\/\*[\s\S]*?\*\//g, "")
+          .replace(/@font-face\s*\{[^}]*\}/gi, "")
+          .replace(/@keyframes[^{]*\{(?:[^{}]*\{[^}]*\})*[^}]*\}/gi, "")
+          .replace(/@media\s+print[^{]*\{(?:[^{}]*\{[^}]*\})*[^}]*\}/gi, "")
+          .replace(/@charset[^;]*;/gi, "")
+          .replace(/\n{2,}/g, "\n");
       }
 
-      if (styles.length > 0) {
-        // Remove <style> blocks from liquid
-        finalLiquid = liquidContent.replace(styleRegex, "");
-
-        // Add CSS asset reference at the top of the section
-        const cssRef = `{{ '${sectionName}.css' | asset_url | stylesheet_tag }}`;
-        finalLiquid = cssRef + "\n" + finalLiquid;
-
-        // Push CSS as a separate asset
-        cssKey = `assets/${sectionName}.css`;
-        await pushAsset(domain, accessToken, themeId, cssKey, styles.join("\n"));
-      }
+      // Push CSS as a separate asset
+      cssKey = `assets/${sectionName}.css`;
+      await pushAsset(domain, accessToken, themeId, cssKey, cssToPush);
     }
 
     const sectionKey = `sections/${sectionName}.liquid`;

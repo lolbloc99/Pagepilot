@@ -73,27 +73,14 @@ function cleanHtmlForShopify(html: string, baseUrl: string): string {
  * Clean CSS: remove bloat (@font-face, @keyframes, print, comments) but keep all visual rules.
  */
 function cleanCss(css: string): string {
-  // Remove bloat but keep all visual rules (class filtering was too aggressive)
-  let cleaned = css
-    .replace(/\/\*[\s\S]*?\*\//g, "")                                          // comments
-    .replace(/@font-face\s*\{[^}]*\}/gi, "")                                   // font-face
-    .replace(/@keyframes[^{]*\{(?:[^{}]*\{[^}]*\})*[^}]*\}/gi, "")            // keyframes
+  // Keep CSS as intact as possible for visual fidelity
+  // Only remove things that break Shopify or are clearly unnecessary
+  const cleaned = css
+    .replace(/@charset[^;]*;/gi, "")                                            // charset (not needed)
+    .replace(/@import[^;]*;/gi, "")                                             // imports (external, won't work)
     .replace(/@media\s+print[^{]*\{(?:[^{}]*\{[^}]*\})*[^}]*\}/gi, "")        // print media
-    .replace(/@charset[^;]*;/gi, "")                                            // charset
-    .replace(/@import[^;]*;/gi, "")                                             // imports
-    .replace(/\s{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n")
     .trim();
-
-  // If CSS is still huge (>150k), keep it but compress aggressively
-  if (cleaned.length > 150000) {
-    // Remove all whitespace that's not inside values
-    cleaned = cleaned
-      .replace(/\s*\{\s*/g, "{")
-      .replace(/\s*\}\s*/g, "}")
-      .replace(/\s*;\s*/g, ";")
-      .replace(/\s*:\s*/g, ":")
-      .replace(/\s*,\s*/g, ",");
-  }
 
   return cleaned;
 }
@@ -204,17 +191,12 @@ IMPORTANT:
   console.log(`[Clone] Applied ${replacements.length} replacements + ${translations.length} translations. HTML: ${processedHtml.length} → ${liquidCode.length} chars`);
 
   // Assemble final .liquid file
-  // Use Shopify's stylesheet_tag if CSS is large, otherwise inline
-  const cssInline = relevantCss.length > 200000
-    ? `{%- comment -%}CSS is large - consider moving to assets/cloned-section.css{%- endcomment -%}
-<style>${relevantCss}</style>`
-    : `<style>${relevantCss}</style>`;
+  // CSS and HTML are separate — CSS will be split to asset file during Shopify push if needed
+  const fullSection = `<style>
+${relevantCss}
+</style>
 
-  const fullSection = `${cssInline}
-
-<div id="section-{{ section.id }}" class="cloned-section">
 ${liquidCode}
-</div>
 
 {% schema %}
 ${sectionSchema || '{"name":"Cloned Section","settings":[]}'}

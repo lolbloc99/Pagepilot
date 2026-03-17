@@ -149,12 +149,11 @@ export async function POST(req: NextRequest) {
     );
     cssBlocks.push(...externalCss.filter(Boolean));
 
-    // Make CSS url() references absolute
+    // Make CSS url() references absolute — don't strip whitespace (breaks rendering)
     const combinedCss = cssBlocks
       .join("\n")
-      .replace(/\/\*[\s\S]*?\*\//g, "")
-      .replace(/url\((['"]?)\/([^)]+)\1\)/g, `url($1${baseUrl}/$2$1)`)
-      .replace(/\s+/g, " ")
+      .replace(/url\((['"]?)\/\/([^)]+)\1\)/g, `url($1https://$2$1)`)
+      .replace(/url\((['"]?)\/(?!\/|http)([^)]+)\1\)/g, `url($1${baseUrl}/$2$1)`)
       .trim();
 
     // Get main content
@@ -166,9 +165,10 @@ export async function POST(req: NextRequest) {
       $("body").html() ||
       "";
 
+    // Remove HTML comments but preserve whitespace structure
     mainContent = mainContent
-      .replace(/\s+/g, " ")
       .replace(/<!--[\s\S]*?-->/g, "")
+      .replace(/\n{3,}/g, "\n\n")
       .trim();
 
     // Extract images list
