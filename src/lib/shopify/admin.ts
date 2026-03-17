@@ -138,6 +138,7 @@ export async function pushTemplate(
     await pushAsset(domain, accessToken, themeId, sectionKey, finalLiquid);
 
     // Then push the JSON template that references this section
+    // Use "layout": "theme" to include theme header/footer
     const jsonTemplate = {
       layout: "theme",
       sections: {

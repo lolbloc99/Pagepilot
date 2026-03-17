@@ -29,10 +29,24 @@ function getProviderConfig(provider: string, apiKey: string, model: string): Pro
         apiKey,
         name: "groq",
       };
+    case "anthropic":
+      return {
+        baseUrl: "https://api.anthropic.com",
+        model: model || "claude-sonnet-4-20250514",
+        apiKey,
+        name: "anthropic",
+      };
+    case "openai":
+      return {
+        baseUrl: "https://api.openai.com/v1",
+        model: model || "gpt-4o",
+        apiKey,
+        name: "openai",
+      };
     case "openrouter":
       return {
         baseUrl: "https://openrouter.ai/api/v1",
-        model: model || "meta-llama/llama-3.1-70b-instruct:free",
+        model: model || "anthropic/claude-sonnet-4-20250514",
         apiKey,
         name: "openrouter",
       };
@@ -71,6 +85,10 @@ interface OpenAIResponse {
   choices: { message: { content: string } }[];
 }
 
+interface AnthropicResponse {
+  content: { type: string; text: string }[];
+}
+
 async function callProvider(
   config: ProviderConfig,
   messages: ChatMessage[],
@@ -79,6 +97,47 @@ async function callProvider(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 120000);
 
+  // Anthropic uses a different API format
+  if (config.name === "anthropic") {
+    const systemMsg = messages.find(m => m.role === "system")?.content || "";
+    const userMsgs = messages.filter(m => m.role !== "system").map(m => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    const res = await fetch(`${config.baseUrl}/v1/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": config.apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: config.model,
+        max_tokens: maxTokens,
+        system: systemMsg,
+        messages: userMsgs,
+        temperature: 0.7,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    if (!res.ok) {
+      const text = await res.text();
+      const error = new Error(`${config.name} error ${res.status}: ${text}`);
+      (error as Error & { status: number }).status = res.status;
+      throw error;
+    }
+
+    const data = (await res.json()) as AnthropicResponse;
+    const content = data.content?.find(c => c.type === "text")?.text;
+    if (!content) throw new Error(`Empty response from ${config.name}`);
+    return content;
+  }
+
+  // OpenAI-compatible providers (Groq, OpenAI, OpenRouter, Ollama)
   const res = await fetch(`${config.baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
