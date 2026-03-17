@@ -48,10 +48,15 @@ export async function getValidToken(domain: string): Promise<string> {
   // Update in DB — exclude _id and updatedAt from MongoDB doc
   const { _id, updatedAt, ...shopData } = shop;
   void _id; void updatedAt;
-  await upsertShop({
-    ...shopData,
-    accessToken: newToken,
-  });
+  try {
+    await upsertShop({
+      ...shopData,
+      accessToken: newToken,
+    });
+  } catch (err) {
+    console.error("[Token] Failed to save refreshed token:", err);
+    // Still return the new token even if DB save failed
+  }
 
   return newToken;
 }
