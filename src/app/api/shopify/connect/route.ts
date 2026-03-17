@@ -77,9 +77,16 @@ export async function POST(req: NextRequest) {
     });
 
     // Check if required scopes are present
-    const requiredScopes = ["read_themes", "write_themes"];
-    const grantedScopes = scopes.split(",").map((s: string) => s.trim());
-    const missingScopes = requiredScopes.filter(s => !grantedScopes.includes(s));
+    // Shopify returns scopes as space-separated OR comma-separated
+    const grantedScopes = scopes.split(/[\s,]+/).map((s: string) => s.trim()).filter(Boolean);
+    console.log("Granted scopes from Shopify:", JSON.stringify(grantedScopes));
+
+    // write_themes implies read_themes
+    const hasReadThemes = grantedScopes.includes("read_themes") || grantedScopes.includes("write_themes");
+    const hasWriteThemes = grantedScopes.includes("write_themes");
+    const missingScopes: string[] = [];
+    if (!hasReadThemes) missingScopes.push("read_themes");
+    if (!hasWriteThemes) missingScopes.push("write_themes");
 
     return NextResponse.json({
       success: true,
@@ -87,9 +94,10 @@ export async function POST(req: NextRequest) {
       domain: cleanShop,
       expiresIn,
       scopes,
+      grantedScopes,
       missingScopes: missingScopes.length > 0 ? missingScopes : undefined,
       warning: missingScopes.length > 0
-        ? `Scopes manquants: ${missingScopes.join(", ")}. Dans le Dev Dashboard (dev.shopify.com), allez dans votre app > Versions, créez une version avec ces scopes, faites Release, réinstallez l'app, puis reconnectez.`
+        ? `Scopes manquants: ${missingScopes.join(", ")}. Scopes reçus de Shopify: [${grantedScopes.join(", ")}]. Ajoutez les scopes manquants dans le Dev Dashboard, faites une nouvelle version, Release, réinstallez, puis reconnectez.`
         : undefined,
     });
   } catch (error) {
