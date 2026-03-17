@@ -23,6 +23,8 @@ export default function ShopsPage() {
   const [success, setSuccess] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [testing, setTesting] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<{ domain: string; success: boolean; message: string } | null>(null);
 
   const fetchShops = useCallback(async () => {
     try {
@@ -99,6 +101,28 @@ export default function ShopsPage() {
       setDeleteConfirm(null);
     } catch {
       setError("Failed to remove shop");
+    }
+  }
+
+  async function handleTest(shopDomain: string) {
+    setTesting(shopDomain);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/shopify/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain: shopDomain }),
+      });
+      const data = await res.json();
+      setTestResult({
+        domain: shopDomain,
+        success: data.success && data.hasReadThemes,
+        message: data.message || data.error || "Unknown result",
+      });
+    } catch {
+      setTestResult({ domain: shopDomain, success: false, message: "Test failed" });
+    } finally {
+      setTesting(null);
     }
   }
 
@@ -281,6 +305,18 @@ export default function ShopsPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handleTest(shop.domain)}
+                    disabled={testing === shop.domain}
+                    className="px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg text-sm transition-colors disabled:opacity-50"
+                  >
+                    {testing === shop.domain ? (
+                      <span className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
+                        Testing...
+                      </span>
+                    ) : "Test"}
+                  </button>
                   {activeDomain === shop.domain ? (
                     <span className="px-3 py-1.5 rounded-full bg-[#96bf48]/10 text-[#96bf48] text-xs font-medium">Active</span>
                   ) : (
@@ -298,6 +334,15 @@ export default function ShopsPage() {
                   )}
                 </div>
               </div>
+              {testResult && testResult.domain === shop.domain && (
+                <div className={`mt-3 p-3 rounded-lg text-sm ${
+                  testResult.success
+                    ? "bg-green-500/10 border border-green-500/30 text-green-400"
+                    : "bg-red-500/10 border border-red-500/30 text-red-400"
+                }`}>
+                  {testResult.success ? "✓" : "✗"} {testResult.message}
+                </div>
+              )}
             </div>
           ))}
         </div>

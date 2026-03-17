@@ -16,7 +16,7 @@ interface ShopInfo {
 }
 
 interface ShopifyPushProps {
-  template: object;
+  template: Record<string, unknown>;
   productTitle: string;
 }
 
@@ -111,6 +111,8 @@ export function ShopifyPush({ template, productTitle }: ShopifyPushProps) {
     setError("");
     setResult(null);
     try {
+      // Extract liquidContent if present (for cloned sections)
+      const { liquidContent, ...cleanTemplate } = template as Record<string, unknown>;
       const res = await fetch("/api/shopify/push", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -118,7 +120,8 @@ export function ShopifyPush({ template, productTitle }: ShopifyPushProps) {
           domain: selectedDomain,
           themeId: selectedTheme,
           templateName,
-          template,
+          template: liquidContent ? undefined : cleanTemplate,
+          liquidContent: liquidContent || undefined,
         }),
       });
       const data = await res.json();

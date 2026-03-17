@@ -4,11 +4,11 @@ import { getValidToken } from "@/lib/shopify/token";
 
 export async function POST(req: NextRequest) {
   try {
-    const { domain, themeId, templateName, template } = await req.json();
+    const { domain, themeId, templateName, template, liquidContent } = await req.json();
 
-    if (!domain || !themeId || !templateName || !template) {
+    if (!domain || !themeId || !templateName) {
       return NextResponse.json(
-        { error: "domain, themeId, templateName, and template are required" },
+        { error: "domain, themeId, and templateName are required" },
         { status: 400 }
       );
     }
@@ -25,12 +25,15 @@ export async function POST(req: NextRequest) {
       ? `product.${safeName}`
       : `product.${safeName}.json`;
 
-    const result = await pushTemplate(domain, accessToken, themeId, key, template);
+    const result = await pushTemplate(domain, accessToken, themeId, key, template || {}, liquidContent);
 
     return NextResponse.json({
       success: true,
       key: result.key,
-      message: `Template pushed to ${result.key}`,
+      sectionKey: result.sectionKey,
+      message: result.sectionKey
+        ? `Section pushed to ${result.sectionKey} + template ${result.key}`
+        : `Template pushed to ${result.key}`,
     });
   } catch (error) {
     console.error("Shopify push error:", error);

@@ -78,17 +78,10 @@ export function CloneResult({ data, onReset }: CloneResultProps) {
     images: "",
   };
 
+  const liquidContent = data.fullSection;
   const fakeTemplate = useMemo(() => ({
-    layout: "theme",
-    sections: {
-      "cloned-section": {
-        type: "cloned-section",
-        settings: {},
-      },
-    },
-    order: ["cloned-section"],
-    _liquid: data.fullSection,
-  }), [data.fullSection]);
+    liquidContent,
+  }), [liquidContent]);
 
   return (
     <div className="space-y-6">

@@ -62,14 +62,13 @@ export async function listThemes(
   return data.themes;
 }
 
-export async function pushTemplate(
+export async function pushAsset(
   domain: string,
   accessToken: string,
   themeId: number,
-  templateKey: string,
-  templateJson: object
+  key: string,
+  value: string
 ): Promise<{ key: string }> {
-  const key = `templates/${templateKey}`;
   const data = await shopifyFetch<{ asset: { key: string } }>(
     domain,
     accessToken,
@@ -77,14 +76,49 @@ export async function pushTemplate(
     {
       method: "PUT",
       body: JSON.stringify({
-        asset: {
-          key,
-          value: JSON.stringify(templateJson, null, 2),
-        },
+        asset: { key, value },
       }),
     }
   );
   return { key: data.asset.key };
+}
+
+export async function pushTemplate(
+  domain: string,
+  accessToken: string,
+  themeId: number,
+  templateKey: string,
+  templateJson: object,
+  liquidContent?: string
+): Promise<{ key: string; sectionKey?: string }> {
+  const sectionName = templateKey.replace(/\.json$/, "").replace(/^product\./, "");
+
+  // If there's liquid content, push the section file first
+  if (liquidContent) {
+    const sectionKey = `sections/${sectionName}.liquid`;
+    await pushAsset(domain, accessToken, themeId, sectionKey, liquidContent);
+
+    // Then push the JSON template that references this section
+    const jsonTemplate = {
+      layout: "theme",
+      sections: {
+        [sectionName]: {
+          type: sectionName,
+          settings: {},
+        },
+      },
+      order: [sectionName],
+    };
+    const tplKey = `templates/${templateKey}`;
+    await pushAsset(domain, accessToken, themeId, tplKey, JSON.stringify(jsonTemplate, null, 2));
+
+    return { key: tplKey, sectionKey };
+  }
+
+  // No liquid — push as plain JSON template
+  const tplKey = `templates/${templateKey}`;
+  await pushAsset(domain, accessToken, themeId, tplKey, JSON.stringify(templateJson, null, 2));
+  return { key: tplKey };
 }
 
 export async function getShopInfo(
