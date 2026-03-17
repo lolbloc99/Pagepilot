@@ -79,9 +79,12 @@ function replaceImagesWithPlaceholders(html: string): { html: string; imageSetti
       // Extract loading attribute
       const loadingAttr = ' loading="lazy"';
 
+      // Shopify schema labels max 70 chars
+      const label = (alt || `Image ${imageIndex}`).slice(0, 65);
+
       imageSettings.push({
         id,
-        label: alt || `Image ${imageIndex}`,
+        label,
         width: parseInt(width) || 800,
       });
 
@@ -276,6 +279,15 @@ Return ONLY valid JSON, no markdown. "find" must be EXACT from the HTML.`;
   try {
     const schema = rawSchema ? JSON.parse(rawSchema) : { name: "Section clonée", settings: [], presets: [{ name: "Section clonée" }] };
 
+    // Truncate all existing labels to 70 chars max (Shopify limit)
+    if (Array.isArray(schema.settings)) {
+      for (const s of schema.settings) {
+        if (s.label && typeof s.label === "string" && s.label.length > 70) {
+          s.label = s.label.slice(0, 67) + "...";
+        }
+      }
+    }
+
     // Add image_picker settings for each detected image
     const existingIds = new Set((schema.settings || []).map((s: { id: string }) => s.id));
     for (const img of imageSettings) {
@@ -284,7 +296,7 @@ Return ONLY valid JSON, no markdown. "find" must be EXACT from the HTML.`;
         schema.settings.push({
           type: "image_picker",
           id: img.id,
-          label: img.label,
+          label: img.label.slice(0, 65),
         });
       }
     }
